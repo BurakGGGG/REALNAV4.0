@@ -1,0 +1,7 @@
+<library path="my_robot_hardware">
+  <class name="my_robot_hardware/DiffDriveSystem"
+         type="my_robot_hardware::DiffDriveSystem"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>Diff-drive hardware interface</description>
+  </class>
+</library>
