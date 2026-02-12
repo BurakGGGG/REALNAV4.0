@@ -17,9 +17,9 @@
         fake_components/GenericSystem kullanıyoruz (ros2_control paketinde var).
         -->
         <plugin>my_robot_hardware/DiffDriveSystem</plugin>
-        <param name="port">/dev/ttyACM0</param>
+        <param name="port">/dev/ttyAMA0</param>
         <param name="baud">115200</param>
-        <param name="ticks_per_rev">2048</param>
+        <param name="ticks_per_rev">4000</param>
 
         <param name="state_following_offset">0.0</param>
         <param name="fake_sensor_commands">false</param>

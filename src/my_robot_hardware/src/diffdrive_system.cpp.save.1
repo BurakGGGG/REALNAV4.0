@@ -218,24 +218,7 @@ bool DiffDriveSystem::read_encoders_(int64_t & left, int64_t & right)
   return !ss.fail();
 }
 
-bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)
-{
-  // Not: isim rpm_ ama burada rad/s alıyoruz
-  if (!connected_ || !serial_ || !serial_->is_open()) return false;
-
-  // rad/s -> mrad/s (int)
-  const int32_t l_mrad = static_cast<int32_t>(std::llround(left_rad_s  * 1000.0));
-  const int32_t r_mrad = static_cast<int32_t>(std::llround(right_rad_s * 1000.0));
-
-  std::ostringstream out;
-  out << "V " << l_mrad << " " << r_mrad << "\n";
-  const std::string s = out.str();
-
-  boost::system::error_code ec;
-  boost::asio::write(*serial_, boost::asio::buffer(s), ec);
-  return !ec;
-}
-
+bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)}
 
 
 }  // namespace my_robot_hardware
