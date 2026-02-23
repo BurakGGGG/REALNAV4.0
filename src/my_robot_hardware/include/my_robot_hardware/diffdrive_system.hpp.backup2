@@ -30,8 +30,6 @@ private:
 
   // Robot tekerlek dinamiği (rad/s → PWM haritalaması için)
   double max_wheel_rad_s_{20.0};
-  int min_pwm_{30};
-  double cmd_deadband_rad_s_{0.05};
 
   // ===== Encoder config =====
   int ticks_per_rev_{2048};

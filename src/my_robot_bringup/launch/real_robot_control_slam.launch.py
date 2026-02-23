@@ -1,10 +1,10 @@
 """
 Gerçek Robot Otonom SLAM Launch Dosyası - ROS2 Control Mantığı
-STM32 + LIDAR + SLAM + Nav2 + Frontier Explorer
+STM32 + RPLidar A2M12 + SLAM + Nav2 + Frontier Explorer
 
 Bu launch dosyası:
 1. real_robot_control_bringup.launch.py'yi include eder (ROS2 Control, TF, vb.)
-2. LIDAR node başlatır
+2. RPLidar A2M12 node başlatır (/dev/ttyUSB0)
 3. SLAM Toolbox ile harita oluşturur
 4. Nav2 ile navigasyon sağlar
 5. frontier_explorer ile otonom keşif yapar
@@ -12,8 +12,8 @@ NOT: RViz2 Raspberry Pi'de çalıştırılmaz, kendi bilgisayarında çalıştı
 
 Kullanım:
 ros2 launch my_robot_bringup real_robot_control_slam.launch.py \
-    serial_port:=/dev/ttyUSB0 \
-    lidar_port:=/dev/ttyUSB1
+    serial_port:=/dev/ttyAMA0 \
+    lidar_port:=/dev/ttyUSB0
 """
 
 from launch import LaunchDescription
@@ -32,8 +32,8 @@ def generate_launch_description():
     # Launch Arguments
     declare_serial_port = DeclareLaunchArgument(
         "serial_port",
-        default_value=TextSubstitution(text="/dev/ttyUSB0"),
-        description="STM32 Serial port (USB-UART modülü)"
+        default_value=TextSubstitution(text="/dev/ttyAMA0"),
+        description="STM32 Serial port (Pi 5 UART)"
     )
     
     declare_baud_rate = DeclareLaunchArgument(
@@ -44,8 +44,8 @@ def generate_launch_description():
     
     declare_lidar_port = DeclareLaunchArgument(
         "lidar_port",
-        default_value=TextSubstitution(text="/dev/ttyUSB1"),
-        description="RPLIDAR A2 USB port"
+        default_value=TextSubstitution(text="/dev/ttyUSB0"),
+        description="RPLIDAR A2M12 USB port"
     )
     
     declare_use_sim_time = DeclareLaunchArgument(
@@ -106,16 +106,16 @@ def generate_launch_description():
         period=1.0,  # 1 saniye bekle (TF tree hazır olsun)
         actions=[
             Node(
-                package="rplidar_ros2",
-                executable="rplidar_ros2_node",
+                package="rplidar_ros",
+                executable="rplidar_composition",
                 name="rplidar_node",
                 parameters=[
                     {"serial_port": lidar_port},
-                    {"serial_baudrate": 115200},
-                    {"frame_id": "laser_link"},
-                    {"range_min": 0.15},
-                    {"range_max": 12.0},
-                    {"scan_frequency": 10.0},
+                    {"serial_baudrate": 256000},
+                    {"frame_id": "laser_link"},  # URDF'deki laser_link ile eşleşiyor
+                    {"inverted": False},
+                    {"angle_compensate": True},
+                    {"scan_mode": "Sensitivity"},
                     {"use_sim_time": use_sim_time},
                 ],
                 output="screen",

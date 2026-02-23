@@ -10,7 +10,6 @@
 #include <chrono>
 #include <thread>
 #include <cstring>
-#include <algorithm>
 
 namespace my_robot_hardware
 {
@@ -34,22 +33,6 @@ hardware_interface::CallbackReturn DiffDriveSystem::on_init(const hardware_inter
       max_wheel_rad_s_ = std::stod(info_.hardware_parameters.at("max_wheel_rad_s"));
     } catch (...) {
       max_wheel_rad_s_ = 20.0;
-    }
-  }
-  if (info_.hardware_parameters.count("min_pwm"))
-  {
-    try {
-      min_pwm_ = std::stoi(info_.hardware_parameters.at("min_pwm"));
-    } catch (...) {
-      min_pwm_ = 30;
-    }
-  }
-  if (info_.hardware_parameters.count("cmd_deadband_rad_s"))
-  {
-    try {
-      cmd_deadband_rad_s_ = std::stod(info_.hardware_parameters.at("cmd_deadband_rad_s"));
-    } catch (...) {
-      cmd_deadband_rad_s_ = 0.05;
     }
   }
 
@@ -320,15 +303,12 @@ bool DiffDriveSystem::read_encoders_(int64_t & left, int64_t & right)
 
 bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)
 {
-  if (!connected_ || serial_fd_ < 0) return false;
+  if (!connected_ || !serial_ || !serial_->is_open()) return false;
 
   // rad/s → PWM -100..100
   const double max_w = (max_wheel_rad_s_ > 1e-3) ? max_wheel_rad_s_ : 20.0;
-  const int32_t min_pwm = std::max(0, std::min(100, min_pwm_));
-  const double deadband = std::max(0.0, cmd_deadband_rad_s_);
 
-  auto rad_to_pwm = [max_w, min_pwm, deadband](double w) -> int32_t {
-    if (std::abs(w) < deadband) return 0;
+  auto rad_to_pwm = [max_w](double w) -> int32_t {
     double ratio = w / max_w;
     if (ratio >  1.0) ratio =  1.0;
     if (ratio < -1.0) ratio = -1.0;
@@ -336,6 +316,7 @@ bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)
     if (pwm > 100) pwm = 100;
     if (pwm < -100) pwm = -100;
 
+    const int32_t min_pwm = 50;
     if (pwm > 0 && pwm < min_pwm) pwm = min_pwm;
     if (pwm < 0 && pwm > -min_pwm) pwm = -min_pwm;
 

@@ -120,6 +120,7 @@ def generate_launch_description():
         executable="spawner",
         arguments=["my_robot_base_controller", "--controller-manager", "/controller_manager"],
         output="screen",
+        remappings=[("/my_robot_base_controller/cmd_vel_unstamped", "/cmd_vel")],
     )
     
     # ---------- Event Handlers ----------
@@ -142,4 +143,3 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,  # Joint state broadcaster
         delay_robot_controller_after_joint_state,  # Base controller (joint_state'den sonra)
     ])
-

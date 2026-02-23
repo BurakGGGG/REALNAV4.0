@@ -112,16 +112,16 @@ def generate_launch_description():
         period=1.0,  # 1 saniye bekle (TF tree hazır olsun)
         actions=[
             Node(
-                package="rplidar_ros2",
-                executable="rplidar_ros2_node",
+                package="rplidar_ros",
+                executable="rplidar_composition",
                 name="rplidar_node",
                 parameters=[
                     {"serial_port": lidar_port},
                     {"serial_baudrate": 115200},  # Gerçek robot: RPLIDAR A2M12 baudrate
                     {"frame_id": "laser_link"},
-                    {"range_min": 0.15},  # Gerçek robot: RPLIDAR A2M12 min range
-                    {"range_max": 12.0},  # Gerçek robot: RPLIDAR A2M12 max range (16.0 -> 12.0)
-                    {"scan_frequency": 10.0},  # Gerçek robot: RPLIDAR A2M12 scan frequency
+                    {"inverted": False},
+                    {"angle_compensate": True},
+                    {"scan_mode": "Standard"},
                     {"use_sim_time": use_sim_time},
                 ],
                 output="screen",
