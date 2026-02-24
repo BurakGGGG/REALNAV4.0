@@ -1,16 +1,13 @@
 #include "my_robot_hardware/diffdrive_system.hpp"
 #include <pluginlib/class_list_macros.hpp>
 #include <cmath>
+#include <algorithm>
 #include <sstream>
+#include <iomanip>
 #include <array>
 #include <fcntl.h>
 #include <unistd.h>
-#include <errno.h>
 #include <termios.h>
-#include <chrono>
-#include <thread>
-#include <cstring>
-#include <algorithm>
 
 namespace my_robot_hardware
 {
@@ -20,14 +17,17 @@ hardware_interface::CallbackReturn DiffDriveSystem::on_init(const hardware_inter
   if (hardware_interface::SystemInterface::on_init(info) != hardware_interface::CallbackReturn::SUCCESS)
     return hardware_interface::CallbackReturn::ERROR;
 
+  // Ortak buffer'lar
   hw_pos_.assign(info_.joints.size(), 0.0);
   hw_vel_.assign(info_.joints.size(), 0.0);
   hw_cmd_.assign(info_.joints.size(), 0.0);
 
+  // URDF ros2_control içindeki parametreleri okuyacağız
   if (info_.hardware_parameters.count("port")) port_ = info_.hardware_parameters.at("port");
   if (info_.hardware_parameters.count("baud")) baud_ = std::stoi(info_.hardware_parameters.at("baud"));
   if (info_.hardware_parameters.count("ticks_per_rev")) ticks_per_rev_ = std::stoi(info_.hardware_parameters.at("ticks_per_rev"));
 
+  // İsteğe bağlı: max_wheel_rad_s parametresi
   if (info_.hardware_parameters.count("max_wheel_rad_s"))
   {
     try {
@@ -36,6 +36,8 @@ hardware_interface::CallbackReturn DiffDriveSystem::on_init(const hardware_inter
       max_wheel_rad_s_ = 20.0;
     }
   }
+
+  // min_pwm parametresi
   if (info_.hardware_parameters.count("min_pwm"))
   {
     try {
@@ -44,6 +46,8 @@ hardware_interface::CallbackReturn DiffDriveSystem::on_init(const hardware_inter
       min_pwm_ = 30;
     }
   }
+
+  // cmd_deadband_rad_s parametresi
   if (info_.hardware_parameters.count("cmd_deadband_rad_s"))
   {
     try {
@@ -53,6 +57,7 @@ hardware_interface::CallbackReturn DiffDriveSystem::on_init(const hardware_inter
     }
   }
 
+  // Encoder toplamları reset
   enc_left_total_ = 0;
   enc_right_total_ = 0;
   last_left_ticks_ = 0;
@@ -109,7 +114,7 @@ hardware_interface::CallbackReturn DiffDriveSystem::on_activate(
 
 hardware_interface::CallbackReturn DiffDriveSystem::on_deactivate(const rclcpp_lifecycle::State &)
 {
-  // Robot dururken tekerleri durdur
+  // güvenlik: durdur
   send_wheel_rpm_(0.0, 0.0);
   disconnect_();
   return hardware_interface::CallbackReturn::SUCCESS;
@@ -119,6 +124,8 @@ hardware_interface::return_type DiffDriveSystem::read(const rclcpp::Time &, cons
 {
   int64_t lt, rt;
   if (!read_encoders_(lt, rt)) {
+    // Encoder verisi gelmiyorsa (STM32 takılı değil / henüz veri yok):
+    // Sistem çökmesin, sadece hızları 0 kabul et.
     hw_vel_[0] = 0.0;
     hw_vel_[1] = 0.0;
     return hardware_interface::return_type::OK;
@@ -145,6 +152,8 @@ hardware_interface::return_type DiffDriveSystem::read(const rclcpp::Time &, cons
   const double left_delta = static_cast<double>(dlt) * ticks_to_rad;
   const double right_delta = static_cast<double>(drt) * ticks_to_rad;
 
+  // joint sırası: URDF'de ros2_control içinde hangi sıradaysa ona göre.
+  // Senin URDF: left_wheel_joint, right_wheel_joint
   hw_pos_[0] += left_delta;
   hw_pos_[1] += right_delta;
 
@@ -157,14 +166,15 @@ hardware_interface::return_type DiffDriveSystem::read(const rclcpp::Time &, cons
 hardware_interface::return_type DiffDriveSystem::write(const rclcpp::Time &, const rclcpp::Duration &)
 {
   if (!connected_) {
+    // STM32 bağlı değilse hataya düşmeyelim, sadece komutları yok sayalım
     RCLCPP_WARN(
       rclcpp::get_logger("DiffDriveSystem"),
       "write() called but STM32 not connected, skipping commands");
     return hardware_interface::return_type::OK;
   }
 
-  // Controller rad/s verir → STM32 PWM -100..100 haritalayacağız
-  RCLCPP_INFO(
+  // Controller rad/s verir ama şu an DEBUG modda sabit PWM kullanıyoruz
+  RCLCPP_DEBUG(
     rclcpp::get_logger("DiffDriveSystem"),
     "write() cmds rad_s: left=%.3f right=%.3f",
     hw_cmd_[0], hw_cmd_[1]);
@@ -177,95 +187,66 @@ hardware_interface::return_type DiffDriveSystem::write(const rclcpp::Time &, con
 
 bool DiffDriveSystem::connect_()
 {
-  serial_fd_ = open(port_.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-  if (serial_fd_ < 0) {
+  try {
+    io_ = std::make_unique<boost::asio::io_context>();
+    serial_ = std::make_unique<boost::asio::serial_port>(*io_);
+
+    serial_->open(port_);
+    serial_->set_option(boost::asio::serial_port_base::baud_rate(baud_));
+    serial_->set_option(boost::asio::serial_port_base::character_size(8));
+    serial_->set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+    serial_->set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+    serial_->set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
+    // Make serial port truly non-blocking:
+    // 1. boost::asio native non-blocking mode
+    serial_->non_blocking(true);
+
+    // 2. termios VMIN=0, VTIME=0: return immediately even if no data
+    int fd = serial_->native_handle();
+    struct termios tio;
+    tcgetattr(fd, &tio);
+    tio.c_cc[VMIN] = 0;
+    tio.c_cc[VTIME] = 0;
+    tcsetattr(fd, TCSANOW, &tio);
+
+    rx_buffer_.clear();
+    connected_ = true;
+    return true;
+  } catch (...) {
     connected_ = false;
     return false;
   }
-
-  struct termios tty;
-  if (tcgetattr(serial_fd_, &tty) != 0) {
-    close(serial_fd_);
-    serial_fd_ = -1;
-    connected_ = false;
-    return false;
-  }
-
-  // Set baud rate
-  speed_t speed = B115200;
-  if (baud_ == 9600) speed = B9600;
-  else if (baud_ == 19200) speed = B19200;
-  else if (baud_ == 38400) speed = B38400;
-  else if (baud_ == 57600) speed = B57600;
-  else if (baud_ == 115200) speed = B115200;
-  
-  cfsetospeed(&tty, speed);
-  cfsetispeed(&tty, speed);
-
-  // 8N1, no flow control
-  tty.c_cflag &= ~PARENB;
-  tty.c_cflag &= ~CSTOPB;
-  tty.c_cflag &= ~CSIZE;
-  tty.c_cflag |= CS8;
-  tty.c_cflag &= ~CRTSCTS;
-  tty.c_cflag |= CREAD | CLOCAL;
-
-  tty.c_lflag &= ~ICANON;
-  tty.c_lflag &= ~ECHO;
-  tty.c_lflag &= ~ECHOE;
-  tty.c_lflag &= ~ECHONL;
-  tty.c_lflag &= ~ISIG;
-
-  tty.c_iflag &= ~(IXON | IXOFF | IXANY);
-  tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL);
-
-  tty.c_oflag &= ~OPOST;
-  tty.c_oflag &= ~ONLCR;
-
-  tty.c_cc[VTIME] = 0;
-  tty.c_cc[VMIN] = 0;
-
-  if (tcsetattr(serial_fd_, TCSANOW, &tty) != 0) {
-    close(serial_fd_);
-    serial_fd_ = -1;
-    connected_ = false;
-    return false;
-  }
-
-  rx_buffer_.clear();
-  connected_ = true;
-  return true;
 }
 
 void DiffDriveSystem::disconnect_()
 {
-  if (serial_fd_ >= 0) {
-    close(serial_fd_);
-    serial_fd_ = -1;
-  }
+  try {
+    if (serial_ && serial_->is_open()) {
+      serial_->close();
+    }
+  } catch (...) {}
   connected_ = false;
 }
 
 bool DiffDriveSystem::read_line_(std::string & line)
 {
-  if (!connected_ || serial_fd_ < 0) return false;
+  if (!connected_) return false;
 
+  if (!serial_ || !serial_->is_open()) return false;
+
+  boost::system::error_code ec;
   std::array<char, 256> buf{};
-  const ssize_t n = ::read(serial_fd_, buf.data(), buf.size());
+  const size_t n = serial_->read_some(boost::asio::buffer(buf), ec);
 
-  if (n < 0) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      // Şu an veri yok → bloklama yok, sadece satır yokmuş gibi dön.
-      return false;
-    }
+  if (ec) {
+    // veri yoksa normal
+    if (ec == boost::asio::error::would_block || ec == boost::asio::error::try_again) return false;
     return false;
   }
-  if (n == 0) {
-    // Port açık ama veri gelmedi.
-    return false;
-  }
-  
-  rx_buffer_.append(buf.data(), static_cast<size_t>(n));
+  if (n == 0) return false;
+
+  rx_buffer_.append(buf.data(), n);
 
   const auto pos = rx_buffer_.find('\n');
   if (pos == std::string::npos) return false;
@@ -279,12 +260,14 @@ bool DiffDriveSystem::read_line_(std::string & line)
 
 bool DiffDriveSystem::read_encoders_(int64_t & left, int64_t & right)
 {
+  // STM32 sürekli satır basıyor varsayımı: en son gelen "ENC ..." satırını al
   std::string last_enc;
   bool got = false;
 
   for (int i = 0; i < 10; ++i) {
     std::string tmp;
     if (!read_line_(tmp)) break;
+    // "ENC dL dR dt" formatı
     if (tmp.rfind("ENC", 0) == 0) {
       last_enc = tmp;
       got = true;
@@ -292,6 +275,7 @@ bool DiffDriveSystem::read_encoders_(int64_t & left, int64_t & right)
   }
   if (!got) return false;
 
+  // Örnek satır: "ENC -54 -224 100"
   std::istringstream ss(last_enc);
   std::string tag;
   int64_t dL = 0, dR = 0;
@@ -302,6 +286,7 @@ bool DiffDriveSystem::read_encoders_(int64_t & left, int64_t & right)
     return false;
   }
 
+  // STM32 delta tick gönderiyor → biz toplam tick'e çeviriyoruz
   enc_left_total_  += dL;
   enc_right_total_ += dR;
 
@@ -320,53 +305,36 @@ bool DiffDriveSystem::read_encoders_(int64_t & left, int64_t & right)
 
 bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)
 {
-  if (!connected_ || serial_fd_ < 0) return false;
+  if (!connected_ || !serial_ || !serial_->is_open()) return false;
 
-  // rad/s → PWM -100..100
-  const double max_w = (max_wheel_rad_s_ > 1e-3) ? max_wheel_rad_s_ : 20.0;
-  const int32_t min_pwm = std::max(0, std::min(100, min_pwm_));
-  const double deadband = std::max(0.0, cmd_deadband_rad_s_);
-
-  auto rad_to_pwm = [max_w, min_pwm, deadband](double w) -> int32_t {
-    if (std::abs(w) < deadband) return 0;
-    double ratio = w / max_w;
-    if (ratio >  1.0) ratio =  1.0;
-    if (ratio < -1.0) ratio = -1.0;
-    int32_t pwm = static_cast<int32_t>(std::llround(ratio * 100.0));
-    if (pwm > 100) pwm = 100;
-    if (pwm < -100) pwm = -100;
-
-    if (pwm > 0 && pwm < min_pwm) pwm = min_pwm;
-    if (pwm < 0 && pwm > -min_pwm) pwm = -min_pwm;
-
+  // rad/s → PWM mapping: linear scale, clamped to [-255, +255]
+  auto rad_s_to_pwm = [this](double rad_s) -> int32_t {
+    if (std::abs(rad_s) < cmd_deadband_rad_s_) return 0;
+    double ratio = rad_s / max_wheel_rad_s_;
+    ratio = std::clamp(ratio, -1.0, 1.0);
+    int32_t pwm = static_cast<int32_t>(ratio * 255.0);
+    // Apply min_pwm threshold (minimum motor voltage to move)
+    if (pwm != 0 && std::abs(pwm) < min_pwm_)
+      pwm = (pwm > 0) ? min_pwm_ : -min_pwm_;
     return pwm;
   };
 
-  const int32_t l_pwm = rad_to_pwm(left_rad_s);
-  const int32_t r_pwm = rad_to_pwm(right_rad_s);
+  const int32_t l_pwm = rad_s_to_pwm(left_rad_s);
+  const int32_t r_pwm = rad_s_to_pwm(right_rad_s);
 
-  RCLCPP_INFO(
+  std::ostringstream out;
+  out << "L " << l_pwm << "\r\n"
+      << "R " << r_pwm << "\r\n";
+  const std::string s = out.str();
+
+  RCLCPP_DEBUG(
     rclcpp::get_logger("DiffDriveSystem"),
-    "send_wheel_rpm_: left_rad_s=%.3f right_rad_s=%.3f -> L=%d R=%d",
+    "send_wheel_rpm_: L_rad_s=%.3f R_rad_s=%.3f -> L_pwm=%d R_pwm=%d",
     left_rad_s, right_rad_s, l_pwm, r_pwm);
 
-  // Send L and R commands separately to ensure both reach STM32
-  std::ostringstream cmd_l;
-  cmd_l << "L " << l_pwm << "\r\n";
-  std::string l_str = cmd_l.str();
-  
-  ssize_t written = ::write(serial_fd_, l_str.c_str(), l_str.length());
-  if (written != static_cast<ssize_t>(l_str.length())) return false;
-  
-  // Small delay to ensure L command is processed before R
-  std::this_thread::sleep_for(std::chrono::milliseconds(5));
-  
-  std::ostringstream cmd_r;
-  cmd_r << "R " << r_pwm << "\r\n";
-  std::string r_str = cmd_r.str();
-  
-  written = ::write(serial_fd_, r_str.c_str(), r_str.length());
-  return written == static_cast<ssize_t>(r_str.length());
+  boost::system::error_code ec;
+  boost::asio::write(*serial_, boost::asio::buffer(s), ec);
+  return !ec;
 }
 
 }  // namespace my_robot_hardware

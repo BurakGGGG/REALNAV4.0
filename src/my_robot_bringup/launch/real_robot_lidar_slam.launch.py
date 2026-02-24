@@ -90,7 +90,7 @@ def generate_launch_description():
                     {"frame_id": "laser_link"},
                     {"inverted": False},
                     {"angle_compensate": True},
-                    {"scan_mode": "Sensitivity"},
+                    {"scan_mode": "Standard"},
                 ],
                 output="screen",
             )

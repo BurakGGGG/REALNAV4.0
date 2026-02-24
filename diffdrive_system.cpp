@@ -1,11 +1,13 @@
 #include "my_robot_hardware/diffdrive_system.hpp"
 #include <pluginlib/class_list_macros.hpp>
 #include <cmath>
+#include <algorithm>
 #include <sstream>
 #include <iomanip>
 #include <array>
 #include <fcntl.h>
 #include <unistd.h>
+#include <termios.h>
 
 namespace my_robot_hardware
 {
@@ -32,6 +34,26 @@ hardware_interface::CallbackReturn DiffDriveSystem::on_init(const hardware_inter
       max_wheel_rad_s_ = std::stod(info_.hardware_parameters.at("max_wheel_rad_s"));
     } catch (...) {
       max_wheel_rad_s_ = 20.0;
+    }
+  }
+
+  // min_pwm parametresi
+  if (info_.hardware_parameters.count("min_pwm"))
+  {
+    try {
+      min_pwm_ = std::stoi(info_.hardware_parameters.at("min_pwm"));
+    } catch (...) {
+      min_pwm_ = 30;
+    }
+  }
+
+  // cmd_deadband_rad_s parametresi
+  if (info_.hardware_parameters.count("cmd_deadband_rad_s"))
+  {
+    try {
+      cmd_deadband_rad_s_ = std::stod(info_.hardware_parameters.at("cmd_deadband_rad_s"));
+    } catch (...) {
+      cmd_deadband_rad_s_ = 0.05;
     }
   }
 
@@ -152,9 +174,9 @@ hardware_interface::return_type DiffDriveSystem::write(const rclcpp::Time &, con
   }
 
   // Controller rad/s verir ama şu an DEBUG modda sabit PWM kullanıyoruz
-  RCLCPP_INFO(
+  RCLCPP_DEBUG(
     rclcpp::get_logger("DiffDriveSystem"),
-    "write() cmds rad_s: left=%.3f right=%.3f (DEBUG: sabit PWM)",
+    "write() cmds rad_s: left=%.3f right=%.3f",
     hw_cmd_[0], hw_cmd_[1]);
 
   if (!send_wheel_rpm_(hw_cmd_[0], hw_cmd_[1]))
@@ -176,8 +198,19 @@ bool DiffDriveSystem::connect_()
     serial_->set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
     serial_->set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
-    int flags = fcntl(serial_->native_handle(), F_GETFL, 0);
-    fcntl(serial_->native_handle(), F_SETFL, flags | O_NONBLOCK);
+    // Make serial port truly non-blocking:
+    int fd = serial_->native_handle();
+
+    // 1. O_NONBLOCK flag
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    // 2. termios VMIN=0, VTIME=0: return immediately even if no data
+    struct termios tio;
+    tcgetattr(fd, &tio);
+    tio.c_cc[VMIN] = 0;
+    tio.c_cc[VTIME] = 0;
+    tcsetattr(fd, TCSANOW, &tio);
 
     rx_buffer_.clear();
     connected_ = true;
@@ -274,23 +307,32 @@ bool DiffDriveSystem::read_encoders_(int64_t & left, int64_t & right)
 
 bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)
 {
-  (void)left_rad_s;
-  (void)right_rad_s;
-
   if (!connected_ || !serial_ || !serial_->is_open()) return false;
 
-  // DEBUG: her zaman sabit PWM gönder (tam güç)
-  const int32_t l_pwm = 100;
-  const int32_t r_pwm = 100;
+  // rad/s → PWM mapping: linear scale, clamped to [-255, +255]
+  auto rad_s_to_pwm = [this](double rad_s) -> int32_t {
+    if (std::abs(rad_s) < cmd_deadband_rad_s_) return 0;
+    double ratio = rad_s / max_wheel_rad_s_;
+    ratio = std::clamp(ratio, -1.0, 1.0);
+    int32_t pwm = static_cast<int32_t>(ratio * 255.0);
+    // Apply min_pwm threshold (minimum motor voltage to move)
+    if (pwm != 0 && std::abs(pwm) < min_pwm_)
+      pwm = (pwm > 0) ? min_pwm_ : -min_pwm_;
+    return pwm;
+  };
+
+  const int32_t l_pwm = rad_s_to_pwm(left_rad_s);
+  const int32_t r_pwm = rad_s_to_pwm(right_rad_s);
 
   std::ostringstream out;
   out << "L " << l_pwm << "\r\n"
       << "R " << r_pwm << "\r\n";
   const std::string s = out.str();
 
-  RCLCPP_INFO(
+  RCLCPP_DEBUG(
     rclcpp::get_logger("DiffDriveSystem"),
-    "DEBUG send_wheel_rpm_: forcing L=%d R=%d", l_pwm, r_pwm);
+    "send_wheel_rpm_: L_rad_s=%.3f R_rad_s=%.3f -> L_pwm=%d R_pwm=%d",
+    left_rad_s, right_rad_s, l_pwm, r_pwm);
 
   boost::system::error_code ec;
   boost::asio::write(*serial_, boost::asio::buffer(s), ec);

@@ -4,6 +4,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
 #include <string>
+#include <deque>
+#include <memory>
+
+#include <boost/asio.hpp>
 
 namespace my_robot_hardware
 {
@@ -29,22 +33,26 @@ private:
   int baud_{115200};
 
   // Robot tekerlek dinamiği (rad/s → PWM haritalaması için)
+  // Max lineer hız ~1.0 m/s, wheel_radius ~0.05 m → max_rad_s ≈ 20
   double max_wheel_rad_s_{20.0};
-  int min_pwm_{30};
+  int32_t min_pwm_{30};
   double cmd_deadband_rad_s_{0.05};
 
   // ===== Encoder config =====
   int ticks_per_rev_{2048};
+  bool encoder_is_delta_{false};
 
   int64_t last_left_ticks_{0};
   int64_t last_right_ticks_{0};
   bool first_read_{true};
 
+  // STM32 "ENC dL dR dt" satırlarını mutlak tick'e çevirmek için toplam sayaçlar
   int64_t enc_left_total_{0};
   int64_t enc_right_total_{0};
 
-  // ===== Serial communication (POSIX) =====
-  int serial_fd_{-1};
+  // ===== Serial communication =====
+  std::unique_ptr<boost::asio::io_context> io_;
+  std::unique_ptr<boost::asio::serial_port> serial_;
   std::string rx_buffer_;
   bool connected_{false};
 
@@ -53,6 +61,8 @@ private:
   void disconnect_();
   bool read_line_(std::string & line);
   bool read_encoders_(int64_t & left, int64_t & right);
+
+  // Not: .cpp'de isim send_wheel_rpm_ ama biz rad/s gönderiyoruz
   bool send_wheel_rpm_(double left_rad_s, double right_rad_s);
 
 };  // class DiffDriveSystem

@@ -115,7 +115,7 @@ def generate_launch_description():
                     {"frame_id": "laser_link"},  # URDF'deki laser_link ile eşleşiyor
                     {"inverted": False},
                     {"angle_compensate": True},
-                    {"scan_mode": "Sensitivity"},
+                    {"scan_mode": "Standard"},
                     {"use_sim_time": use_sim_time},
                 ],
                 output="screen",

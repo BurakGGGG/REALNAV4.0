@@ -50,6 +50,31 @@ Visualization Manager:
       Color Scheme: map
       Alpha: 0.7
 
+    - Class: rviz_default_plugins/Odometry
+      Name: Odometry
+      Enabled: true
+      Topic:
+        Value: /odom
+      Keep: 100
+      Shape:
+        Value: Arrow
+      Color: 0; 200; 255
+
+    - Class: rviz_default_plugins/Path
+      Name: Plan
+      Enabled: true
+      Topic:
+        Value: /plan
+      Color: 255; 100; 0
+      Line Style:
+        Line Width: 0.03
+
+    - Class: rviz_default_plugins/MarkerArray
+      Name: FrontierMarkers
+      Enabled: true
+      Topic:
+        Value: /frontier_markers
+
   Global Options:
     Background Color: 48; 48; 48
     Fixed Frame: map

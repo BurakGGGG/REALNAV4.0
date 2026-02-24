@@ -3,6 +3,7 @@ PC Tarafı RViz2 Launch Dosyası
 Raspberry Pi'deki robot topic'lerini görselleştirmek için.
 
 ROS_DOMAIN_ID Raspi ile aynı olmalı!
+robot_state_publisher Raspi'de zaten çalışıyor, burada SADECE RViz2 başlatılır.
 
 Kullanım (PC'de):
 export ROS_DOMAIN_ID=0
@@ -11,14 +12,12 @@ ros2 launch my_robot_bringup pc_rviz_slam.launch.py
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
-from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
-    pkg_desc = FindPackageShare("my_robot_description")
     pkg_bringup = FindPackageShare("my_robot_bringup")
     
     declare_use_sim_time = DeclareLaunchArgument(
@@ -29,25 +28,9 @@ def generate_launch_description():
     
     use_sim_time = LaunchConfiguration("use_sim_time")
     
-    # URDF
-    urdf_xacro_path = PathJoinSubstitution([pkg_desc, "urdf", "my_robot.urdf.xacro"])
-    robot_desc = ParameterValue(
-        Command(["xacro", " ", urdf_xacro_path]),
-        value_type=str
-    )
-    
-    # Robot State Publisher - URDF'den TF yayınlar
-    robot_state_pub = Node(
-        package="robot_state_publisher",
-        executable="robot_state_publisher",
-        output="screen",
-        parameters=[
-            {"robot_description": robot_desc},
-            {"use_sim_time": use_sim_time},
-        ],
-    )
-    
-    # RViz2
+    # RViz2 - Raspi'deki topic'leri görselleştirir
+    # robot_state_publisher Raspi'de çalışıyor, TF ve /robot_description
+    # DDS üzerinden otomatik gelir (aynı ROS_DOMAIN_ID)
     rviz_config = PathJoinSubstitution([pkg_bringup, "rviz", "slam_view.rviz"])
     rviz_node = Node(
         package="rviz2",
@@ -60,6 +43,5 @@ def generate_launch_description():
     
     return LaunchDescription([
         declare_use_sim_time,
-        robot_state_pub,
         rviz_node,
     ])

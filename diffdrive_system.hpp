@@ -35,6 +35,8 @@ private:
   // Robot tekerlek dinamiği (rad/s → PWM haritalaması için)
   // Max lineer hız ~1.0 m/s, wheel_radius ~0.05 m → max_rad_s ≈ 20
   double max_wheel_rad_s_{20.0};
+  int32_t min_pwm_{30};
+  double cmd_deadband_rad_s_{0.05};
 
   // ===== Encoder config =====
   int ticks_per_rev_{2048};
