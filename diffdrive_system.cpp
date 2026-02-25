@@ -174,7 +174,7 @@ hardware_interface::return_type DiffDriveSystem::write(const rclcpp::Time &, con
   }
 
   // Controller rad/s verir ama şu an DEBUG modda sabit PWM kullanıyoruz
-  RCLCPP_DEBUG(
+  RCLCPP_INFO(
     rclcpp::get_logger("DiffDriveSystem"),
     "write() cmds rad_s: left=%.3f right=%.3f",
     hw_cmd_[0], hw_cmd_[1]);
@@ -198,16 +198,19 @@ bool DiffDriveSystem::connect_()
     serial_->set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
     serial_->set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
-    // Make serial port truly non-blocking:
+    // Make serial port fully raw and non-blocking:
     int fd = serial_->native_handle();
 
     // 1. O_NONBLOCK flag
     int flags = fcntl(fd, F_GETFL, 0);
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-    // 2. termios VMIN=0, VTIME=0: return immediately even if no data
+    // 2. Full raw mode — no output post-processing, no echo, no canonical
     struct termios tio;
     tcgetattr(fd, &tio);
+    tio.c_iflag &= ~(IXON | IXOFF | IXANY | INLCR | ICRNL | IGNCR);
+    tio.c_oflag &= ~OPOST;  // RAW output — \n stays as \n
+    tio.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
     tio.c_cc[VMIN] = 0;
     tio.c_cc[VTIME] = 0;
     tcsetattr(fd, TCSANOW, &tio);
@@ -324,18 +327,22 @@ bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)
   const int32_t l_pwm = rad_s_to_pwm(left_rad_s);
   const int32_t r_pwm = rad_s_to_pwm(right_rad_s);
 
-  std::ostringstream out;
-  out << "L " << l_pwm << "\r\n"
-      << "R " << r_pwm << "\r\n";
-  const std::string s = out.str();
-
-  RCLCPP_DEBUG(
+  RCLCPP_INFO(
     rclcpp::get_logger("DiffDriveSystem"),
-    "send_wheel_rpm_: L_rad_s=%.3f R_rad_s=%.3f -> L_pwm=%d R_pwm=%d",
-    left_rad_s, right_rad_s, l_pwm, r_pwm);
+    "PWM => L=%d  R=%d  (from L_rad_s=%.3f R_rad_s=%.3f)",
+    l_pwm, r_pwm, left_rad_s, right_rad_s);
 
   boost::system::error_code ec;
-  boost::asio::write(*serial_, boost::asio::buffer(s), ec);
+
+  // Send L and R as SEPARATE writes with delay (STM32 needs time to parse)
+  std::string cmd_l = "L " + std::to_string(l_pwm) + "\n";
+  boost::asio::write(*serial_, boost::asio::buffer(cmd_l), ec);
+  if (ec) return false;
+
+  usleep(2000);  // 2ms delay between commands
+
+  std::string cmd_r = "R " + std::to_string(r_pwm) + "\n";
+  boost::asio::write(*serial_, boost::asio::buffer(cmd_r), ec);
   return !ec;
 }
 

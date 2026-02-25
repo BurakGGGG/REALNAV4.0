@@ -24,7 +24,7 @@ slam_toolbox:
     # map_start_pose: [0.0, 0.0, 0.0]
 
     debug_logging: false
-    throttle_scans: 1
+    throttle_scans: 3
     transform_publish_period: 0.02 #if 0 never publishes odometry
     map_update_interval: 3.0      # Azaltıldı: daha sık harita güncelleme (5.0 -> 3.0)
     resolution: 0.05

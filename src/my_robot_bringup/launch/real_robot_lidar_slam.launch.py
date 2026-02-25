@@ -12,7 +12,7 @@ ros2 launch my_robot_bringup real_robot_lidar_slam.launch.py \
 """
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 from launch_ros.actions import Node
@@ -76,25 +76,11 @@ def generate_launch_description():
     )
     
     # ---------- LIDAR Node (RPLIDAR A2M12) ----------
-    lidar_node = TimerAction(
-        period=1.0,  # 1 saniye bekle (TF tree hazır olsun)
-        actions=[
-            Node(
-                package="rplidar_ros",
-                executable="rplidar_composition",
-                name="rplidar_node",
-                parameters=[
-                    {"channel_type": "serial"},
-                    {"serial_port": lidar_port},
-                    {"serial_baudrate": 256000},
-                    {"frame_id": "laser_link"},
-                    {"inverted": False},
-                    {"angle_compensate": True},
-                    {"scan_mode": "Standard"},
-                ],
-                output="screen",
-            )
-        ]
+    # start_rplidar.sh: arka planda başlatıp /scan kontrol eder, retry yapar
+    rplidar_script = PathJoinSubstitution([pkg_bringup, "scripts", "start_rplidar.sh"])
+    lidar_node = ExecuteProcess(
+        cmd=['bash', rplidar_script, lidar_port],
+        output='screen',
     )
     
     # ---------- SLAM Toolbox ----------

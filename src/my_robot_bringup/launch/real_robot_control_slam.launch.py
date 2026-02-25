@@ -17,7 +17,7 @@ ros2 launch my_robot_bringup real_robot_control_slam.launch.py \
 """
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction, ExecuteProcess
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution
 from launch_ros.actions import Node
@@ -102,25 +102,22 @@ def generate_launch_description():
     )
     
     # ---------- LIDAR Node (RPLIDAR A2) ----------
-    lidar_node = TimerAction(
-        period=1.0,  # 1 saniye bekle (TF tree hazır olsun)
-        actions=[
-            Node(
-                package="rplidar_ros",
-                executable="rplidar_composition",
-                name="rplidar_node",
-                parameters=[
-                    {"serial_port": lidar_port},
-                    {"serial_baudrate": 256000},
-                    {"frame_id": "laser_link"},  # URDF'deki laser_link ile eşleşiyor
-                    {"inverted": False},
-                    {"angle_compensate": True},
-                    {"scan_mode": "Standard"},
-                    {"use_sim_time": use_sim_time},
-                ],
-                output="screen",
-            )
-        ]
+    # ExecuteProcess + bash retry: Node action portu kilitliyor başarısız olunca
+    lidar_node = ExecuteProcess(
+        cmd=['bash', '-c',
+             'sleep 3 && '
+             'for i in 1 2 3 4 5; do '
+             '  echo "[LiDAR] Attempt $i: starting rplidar..." && '
+             '  ros2 run rplidar_ros rplidar_composition --ros-args '
+             '    -p serial_port:=/dev/ttyUSB0 '
+             '    -p serial_baudrate:=256000 '
+             '    -p frame_id:=laser_link '
+             '    -p angle_compensate:=true '
+             '    -p scan_mode:=Standard '
+             '  && break; '
+             '  echo "[LiDAR] Attempt $i failed, waiting 2s..." && sleep 2; '
+             'done'],
+        output='screen',
     )
     
     # ---------- SLAM Toolbox ----------
