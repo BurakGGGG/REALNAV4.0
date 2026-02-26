@@ -13,33 +13,32 @@ cleanup() {
 
     echo ""
     echo "[LiDAR] Kapatılıyor..."
-    
-    # 1. Hızlı Serial Çözüm (İlk bunu dene çünkü servis ölmüş olabilir)
+
+    # 1. ÖNCE seri porttan STOP komutu gönder (en hızlı yol — servis ölmüş olabilir)
     if [ -e "$PORT" ]; then
-        echo "[LiDAR] Doğrudan seri porttan STOP gönderiliyor..."
         stty -F "$PORT" 256000 raw -echo 2>/dev/null
         printf '\xa5\x25' > "$PORT" 2>/dev/null
-        sleep 0.2
+        printf '\xa5\x25' > "$PORT" 2>/dev/null   # iki kez gönder, garanti olsun
     fi
 
-    # 2. ROS 2 servisini TIMEOUT ile çağır (takılmayı önle)
-    echo "[LiDAR] /stop_motor servisi deneniyor (max 2s)..."
-    timeout 2 ros2 service call /stop_motor std_srvs/srv/Empty 2>/dev/null
-    
-    # 3. Process'i nazikçe durdur
-    if [ ! -z "$RPID" ]; then
-        kill -INT $RPID 2>/dev/null
+    # 2. rplidar_composition process'ini hemen öldür (SIGTERM → SIGKILL)
+    if [ -n "$RPID" ] && kill -0 $RPID 2>/dev/null; then
+        kill -TERM $RPID 2>/dev/null
+        sleep 0.5
+        kill -9 $RPID 2>/dev/null
     fi
-    sleep 1
-    
-    # 4. Hala yaşıyorsa zorla öldür
+    # Kalan tüm rplidar process'lerini öldür
     pkill -9 -f rplidar_composition 2>/dev/null
-    
-    # 5. Son garanti Serial Çözüm (Emin olmak için)
+
+    # 3. ROS 2 servisini TIMEOUT ile çağır (ek garanti, takılmayı önle)
+    timeout 1 ros2 service call /stop_motor std_srvs/srv/Empty 2>/dev/null &
+
+    # 4. Son garanti: seri porttan tekrar STOP
+    sleep 0.3
     if [ -e "$PORT" ]; then
         printf '\xa5\x25' > "$PORT" 2>/dev/null
     fi
-    
+
     echo "[LiDAR] Tamamen durduruldu."
     exit 0
 }

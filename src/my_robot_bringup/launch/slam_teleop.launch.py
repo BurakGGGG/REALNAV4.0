@@ -17,7 +17,11 @@ Kullanım (Raspi'de):
 """
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction, ExecuteProcess
+from launch.actions import (
+    IncludeLaunchDescription, DeclareLaunchArgument,
+    TimerAction, ExecuteProcess, RegisterEventHandler,
+)
+from launch.event_handlers import OnShutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution, Command
 from launch_ros.actions import Node
@@ -79,6 +83,21 @@ def generate_launch_description():
     lidar_node = ExecuteProcess(
         cmd=['bash', rplidar_script, lidar_port],
         output='screen',
+        sigterm_timeout='5',   # cleanup trap'e 5 saniye ver
+        sigkill_timeout='3',   # ardından 3 saniye daha bekle
+    )
+
+    # ---------- SHUTDOWN GARANTİSİ: LiDAR motoru durdur ----------
+    stop_lidar_script = PathJoinSubstitution([pkg_bringup, "scripts", "stop_lidar.sh"])
+    shutdown_handler = RegisterEventHandler(
+        OnShutdown(
+            on_shutdown=[
+                ExecuteProcess(
+                    cmd=['bash', stop_lidar_script, lidar_port],
+                    output='screen',
+                )
+            ]
+        )
     )
 
     # ---------- SLAM Toolbox (3s delay) ----------
@@ -102,9 +121,10 @@ def generate_launch_description():
         declare_slam_params,
         declare_use_sim_time,
 
-        robot_state_pub,        # URDF TF (base_link → laser_link etc.)
-        joint_state_pub,        # Wheel TF
-        lidar_node,             # RPLIDAR A2M12
-        slam_toolbox_launch,    # SLAM Toolbox
+        shutdown_handler,           # ← Launch kapanınca LiDAR'ı durdur (GARANTİ)
+        robot_state_pub,            # URDF TF (base_link → laser_link etc.)
+        joint_state_pub,            # Wheel TF
+        lidar_node,                 # RPLIDAR A2M12
+        slam_toolbox_launch,        # SLAM Toolbox
         # ros2_control YOK — odom TF wasd_teleop.py tarafından yayınlanır
     ])

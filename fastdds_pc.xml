@@ -7,7 +7,7 @@
           <initialPeersList>
             <locator>
               <udpv4>
-                <address>192.168.68.110</address>
+                <address>192.168.68.111</address>
               </udpv4>
             </locator>
           </initialPeersList>
