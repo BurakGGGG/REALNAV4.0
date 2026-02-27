@@ -1,29 +1,25 @@
 #!/bin/bash
-# LiDAR Motor Durdurma Script'i
-# Launch kapanınca veya manuel olarak çağrılır
-# Kullanım: stop_lidar.sh [port]
+# stop_lidar.sh — RPLidar motoru durdurma (standalone)
+# Launch OnShutdown handler tarafından çağrılır.
+# Her şey ölmüş olsa bile serial üzerinden motoru durdurur.
 
 PORT="${1:-/dev/ttyUSB0}"
 
 echo "[LiDAR-STOP] Motor durduruluyor..."
 
-# 1. Seri porttan STOP komutu (0xA5 0x25 = stop motor)
+# 1. Tüm rplidar process'lerini öldür
+pkill -9 -f rplidar_composition 2>/dev/null
+sleep 1
+
+# 2. Port serbest kaldıktan sonra STOP komutu gönder
 if [ -e "$PORT" ]; then
     stty -F "$PORT" 256000 raw -echo 2>/dev/null
     printf '\xa5\x25' > "$PORT" 2>/dev/null
+    sleep 0.3
     printf '\xa5\x25' > "$PORT" 2>/dev/null
+    echo "[LiDAR-STOP] Serial STOP gönderildi."
+else
+    echo "[LiDAR-STOP] Port $PORT bulunamadı."
 fi
 
-# 2. ROS servisini dene (arka planda, takılmasın)
-timeout 1 ros2 service call /stop_motor std_srvs/srv/Empty 2>/dev/null &
-
-# 3. Tüm rplidar process'lerini öldür
-pkill -9 -f rplidar_composition 2>/dev/null
-
-# 4. Son garanti — tekrar seri porttan STOP
-sleep 0.3
-if [ -e "$PORT" ]; then
-    printf '\xa5\x25' > "$PORT" 2>/dev/null
-fi
-
-echo "[LiDAR-STOP] Tamamlandı."
+echo "[LiDAR-STOP] Motor durduruldu."

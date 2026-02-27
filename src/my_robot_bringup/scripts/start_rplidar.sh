@@ -1,6 +1,7 @@
 #!/bin/bash
-# RPLidar A2M12 başlatma script'i (DURDURMA GARANTİLİ - STRICT TIMEOUT + SERIAL)
-# ===================================================
+# RPLidar A2M12 başlatma script'i
+# Retry ile başlatır. Cleanup'ta process'i öldürüp port serbest kaldıktan sonra
+# serial STOP komutu gönderir.
 
 PORT="${1:-/dev/ttyUSB0}"
 MAX_ATTEMPTS=5
@@ -8,48 +9,39 @@ RPID=""
 CLEANUP_RUN=0
 
 cleanup() {
-    if [ "$CLEANUP_RUN" -eq 1 ]; then return; fi
+    [ "$CLEANUP_RUN" -eq 1 ] && return
     CLEANUP_RUN=1
 
-    echo ""
     echo "[LiDAR] Kapatılıyor..."
-
-    # 1. ÖNCE seri porttan STOP komutu gönder (en hızlı yol — servis ölmüş olabilir)
+    
+    # 1. Process'i öldür — portu serbest bıraksın
+    if [ -n "$RPID" ]; then
+        kill $RPID 2>/dev/null
+        # Process'in ölmesini bekle (max 3s)
+        for x in $(seq 1 30); do
+            kill -0 $RPID 2>/dev/null || break
+            sleep 0.1
+        done
+        kill -9 $RPID 2>/dev/null
+    fi
+    pkill -9 -f rplidar_composition 2>/dev/null
+    sleep 1
+    
+    # 2. Port artık serbest — serial STOP gönder
     if [ -e "$PORT" ]; then
         stty -F "$PORT" 256000 raw -echo 2>/dev/null
         printf '\xa5\x25' > "$PORT" 2>/dev/null
-        printf '\xa5\x25' > "$PORT" 2>/dev/null   # iki kez gönder, garanti olsun
-    fi
-
-    # 2. rplidar_composition process'ini hemen öldür (SIGTERM → SIGKILL)
-    if [ -n "$RPID" ] && kill -0 $RPID 2>/dev/null; then
-        kill -TERM $RPID 2>/dev/null
-        sleep 0.5
-        kill -9 $RPID 2>/dev/null
-    fi
-    # Kalan tüm rplidar process'lerini öldür
-    pkill -9 -f rplidar_composition 2>/dev/null
-
-    # 3. ROS 2 servisini TIMEOUT ile çağır (ek garanti, takılmayı önle)
-    timeout 1 ros2 service call /stop_motor std_srvs/srv/Empty 2>/dev/null &
-
-    # 4. Son garanti: seri porttan tekrar STOP
-    sleep 0.3
-    if [ -e "$PORT" ]; then
+        sleep 0.2
         printf '\xa5\x25' > "$PORT" 2>/dev/null
     fi
-
-    echo "[LiDAR] Tamamen durduruldu."
-    exit 0
+    
+    echo "[LiDAR] Durduruldu."
 }
 
 trap cleanup INT TERM EXIT
 
 echo "[LiDAR] Port bekleniyor: $PORT"
-for w in $(seq 1 15); do
-    [ -e "$PORT" ] && break
-    sleep 1
-done
+for w in $(seq 1 15); do [ -e "$PORT" ] && break; sleep 1; done
 
 if [ ! -e "$PORT" ]; then
     echo "[LiDAR] HATA: $PORT bulunamadı!"
@@ -80,17 +72,14 @@ for i in $(seq 1 $MAX_ATTEMPTS); do
 
     PUB_COUNT=$(ros2 topic info /scan 2>/dev/null | grep -oP 'Publisher count: \K\d+' || echo "0")
     if [ "$PUB_COUNT" -gt 0 ] 2>/dev/null; then
-        echo "[LiDAR] BAŞARILI! /scan yayını var. (PID=$RPID)"
-        # Process bitene kadar bekle
+        echo "[LiDAR] BAŞARILI! (PID=$RPID)"
         wait $RPID
         exit 0
     else
-        echo "[LiDAR] Deneme $i BAŞARISIZ (Yayın yok). Öldürülüyor..."
-        kill -INT $RPID 2>/dev/null
-        sleep 1
+        echo "[LiDAR] Deneme $i başarısız."
+        kill -INT $RPID 2>/dev/null; sleep 1
     fi
 done
 
-echo "[LiDAR] Tüm denemeler başarısız oldu!"
-cleanup
+echo "[LiDAR] Tüm denemeler başarısız!"
 exit 1
