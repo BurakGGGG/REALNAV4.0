@@ -13,6 +13,7 @@ source ~/Desktop/REALNAV2.3-/install/setup.bash 2>/dev/null || true
 
 # --- Kısayollar ---
 alias rvizslam='ros2 launch my_robot_bringup pc_rviz_slam.launch.py'
+alias rviznav2='ros2 run rviz2 rviz2 -d ~/Desktop/REALNAV2.3-/src/my_robot_bringup/rviz/exploration.rviz'
 alias getmap='scp raspi@192.168.68.111:~/REALNAV2.3-/maps/my_room_map.* ~/Desktop/REALNAV2.3-/maps/'
 alias buildpc='cd ~/Desktop/REALNAV2.3- && colcon build --symlink-install && source install/setup.bash && cd -'
 alias rosnodes='ros2 node list'

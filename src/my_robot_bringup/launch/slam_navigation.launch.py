@@ -26,7 +26,7 @@ def generate_launch_description():
     )
     declare_params = DeclareLaunchArgument(
         "params_file",
-        default_value=os.path.join(bringup_pkg, "config", "nav2_params.yaml")
+        default_value=os.path.join(bringup_pkg, "config", "nav2_params_custom.yaml")
     )
     declare_map = DeclareLaunchArgument(
         "map",

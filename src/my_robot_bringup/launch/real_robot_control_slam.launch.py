@@ -62,7 +62,7 @@ def generate_launch_description():
     
     declare_nav2_params = DeclareLaunchArgument(
         "nav2_params_file",
-        default_value=PathJoinSubstitution([pkg_bringup, "config", "nav2_params.yaml"]),
+        default_value=PathJoinSubstitution([pkg_bringup, "config", "nav2_params_custom.yaml"]),
         description="Nav2 params yaml"
     )
     
