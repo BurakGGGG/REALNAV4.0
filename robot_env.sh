@@ -2,21 +2,21 @@
 # ============================================================
 #  REALNAV2 — Raspi bash aliases
 #  ~/.bashrc'nin sonuna şunu ekle:
-#    source ~/REALNAV2.3-/robot_env.sh
+#    source ~/REALNAV3-3/robot_env.sh
 # ============================================================
 
 export ROS_DOMAIN_ID=0
-export FASTRTPS_DEFAULT_PROFILES_FILE=~/REALNAV2.3-/fastdds_raspi.xml
+export FASTRTPS_DEFAULT_PROFILES_FILE=~/REALNAV3-3/fastdds_raspi.xml
 
 source /opt/ros/jazzy/setup.bash
-source ~/REALNAV2.3-/install/setup.bash 2>/dev/null || true
+source ~/REALNAV3-3/install/setup.bash 2>/dev/null || true
 
 # --- Kısayollar ---
 alias slam='ros2 launch my_robot_bringup slam_teleop.launch.py lidar_port:=/dev/ttyUSB0'
-alias nav2='ros2 launch my_robot_bringup real_robot_nav2.launch.py map:=/home/raspi/REALNAV2.3-/maps/my_room_map.yaml lidar_port:=/dev/ttyUSB0'
-alias teleop='python3 ~/REALNAV2.3-/src/my_robot_bringup/scripts/wasd_teleop.py'
-alias savemap='mkdir -p ~/REALNAV2.3-/maps && ros2 run nav2_map_server map_saver_cli -f ~/REALNAV2.3-/maps/my_room_map'
-alias buildrobot='cd ~/REALNAV2.3- && chmod +x src/my_robot_bringup/scripts/*.sh src/my_robot_bringup/scripts/*.py && colcon build --symlink-install && source install/setup.bash && cd -'
+alias nav2='ros2 launch my_robot_bringup real_robot_nav2.launch.py map:=/home/raspi/REALNAV3-3/maps/my_room_map.yaml lidar_port:=/dev/ttyUSB0'
+alias teleop='python3 ~/REALNAV3-3/src/my_robot_bringup/scripts/wasd_teleop.py'
+alias savemap='mkdir -p ~/REALNAV3-3/maps && ros2 run nav2_map_server map_saver_cli -f ~/REALNAV3-3/maps/my_room_map'
+alias buildrobot='cd ~/REALNAV3-3 && chmod +x src/my_robot_bringup/scripts/*.sh src/my_robot_bringup/scripts/*.py && colcon build --symlink-install && source install/setup.bash && cd -'
 alias killrobot='sudo stty -F /dev/ttyUSB0 256000 raw -echo 2>/dev/null; sudo bash -c "printf \"\\xa5\\x25\" > /dev/ttyUSB0" 2>/dev/null; pkill -9 -f rplidar_composition; pkill -9 -f slam_toolbox; pkill -9 -f wasd_teleop; pkill -9 -f nav2_; sleep 0.3; sudo bash -c "printf \"\\xa5\\x25\" > /dev/ttyUSB0" 2>/dev/null; echo "All robot processes killed + LiDAR motor stopped."'
 
 echo "🤖 REALNAV2 ortamı hazır. (ROS_DOMAIN_ID=$ROS_DOMAIN_ID)"

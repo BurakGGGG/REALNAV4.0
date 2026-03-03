@@ -13,7 +13,7 @@ Kullanım (Raspi'de):
     ros2 launch my_robot_bringup slam_teleop.launch.py lidar_port:=/dev/ttyUSB0
 
   Terminal 2:
-    python3 ~/REALNAV2.3-/src/my_robot_bringup/scripts/wasd_teleop.py
+    python3 ~/REALNAV3-3/src/my_robot_bringup/scripts/wasd_teleop.py
 """
 
 from launch import LaunchDescription
