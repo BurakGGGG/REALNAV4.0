@@ -207,12 +207,32 @@ def generate_launch_description():
     )
 
     # ================================================================
-    # 6. Lifecycle Manager (10 saniye sonra)
-    #    Tüm node'lar başlatıldıktan sonra configure/activate yapar
+    # 6. Lifecycle Managers (ayrı ayrı — birinin hatası diğerini engellemez)
+    #    Referans: articubot_one — localization + navigation ayrı lifecycle
     # ================================================================
-    managed_nodes = [
-        "map_server",
-        "amcl",
+    
+    # 6a. Localization Lifecycle Manager (14s — map_server + amcl)
+    localization_managed = ["map_server", "amcl"]
+    lifecycle_localization = TimerAction(
+        period=14.0,
+        actions=[
+            Node(
+                package="nav2_lifecycle_manager",
+                executable="lifecycle_manager",
+                name="lifecycle_manager_localization",
+                output="screen",
+                parameters=[
+                    {"use_sim_time": use_sim_time},
+                    {"autostart": True},
+                    {"bond_timeout": 60.0},
+                    {"node_names": localization_managed},
+                ],
+            )
+        ]
+    )
+
+    # 6b. Navigation Lifecycle Manager (20s — nav2 node'ları)
+    navigation_managed = [
         "controller_server",
         "smoother_server",
         "planner_server",
@@ -222,9 +242,8 @@ def generate_launch_description():
         "velocity_smoother",
         "collision_monitor",
     ]
-
-    lifecycle_mgr = TimerAction(
-        period=18.0,  # 18s: Tüm node'lar başlatıldı, lifecycle ile aktifleştir
+    lifecycle_navigation = TimerAction(
+        period=20.0,
         actions=[
             Node(
                 package="nav2_lifecycle_manager",
@@ -234,8 +253,8 @@ def generate_launch_description():
                 parameters=[
                     {"use_sim_time": use_sim_time},
                     {"autostart": True},
-                    {"bond_timeout": 60.0},   # Node'ların yavaş başlamasına tolerans
-                    {"node_names": managed_nodes},
+                    {"bond_timeout": 60.0},
+                    {"node_names": navigation_managed},
                 ],
             )
         ]
@@ -254,8 +273,9 @@ def generate_launch_description():
         nav2_bridge_node,          # cmd_vel → STM32, odom → TF
         lidar_node,                # RPLIDAR A2M12 (script kendi portu bekler)
 
-        # Kademeli başlatma (autonomous_exploration.launch.py modeli)
+        # Kademeli başlatma
         localization_launch,       # 12s — Map Server + AMCL
+        lifecycle_localization,    # 14s — Localization aktifleştir (harita gelir)
         nav2_navigation,           # 15s — Controller, Planner, Behavior vb.
-        lifecycle_mgr,             # 18s — Lifecycle Manager (configure + activate)
+        lifecycle_navigation,      # 20s — Navigation aktifleştir
     ])

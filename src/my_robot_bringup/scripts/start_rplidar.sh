@@ -78,12 +78,19 @@ if [ ! -e "$PORT" ]; then
     exit 1
 fi
 
-# ===== Port İzin Kontrolü =====
+# ===== Port İzin Kontrolü (şifresiz, launch bloklamaz) =====
 if [ ! -r "$PORT" ] || [ ! -w "$PORT" ]; then
-    echo "[LiDAR] UYARI: $PORT için okuma/yazma izni yok. chmod ile düzeltiliyor..."
-    sudo chmod 666 "$PORT" 2>/dev/null
+    echo "[LiDAR] UYARI: $PORT için okuma/yazma izni yok. Düzeltiliyor..."
+    # 1. Önce sudo şifresiz dene (sudoers kuralı varsa çalışır)
+    sudo -n chmod 666 "$PORT" 2>/dev/null
     if [ ! -r "$PORT" ] || [ ! -w "$PORT" ]; then
-        echo "[LiDAR] HATA: İzin düzeltme başarısız. 'sudo usermod -a -G dialout $USER' çalıştırın."
+        # 2. Hâlâ izin yoksa kullanıcıya kalıcı çözüm göster ve çık
+        echo "[LiDAR] HATA: İzin düzeltme başarısız!"
+        echo "[LiDAR] Kalıcı çözüm için şu komutları çalıştır:"
+        echo "  sudo usermod -a -G dialout $USER"
+        echo "  echo 'SUBSYSTEM==\"tty\", ATTRS{idVendor}==\"10c4\", MODE=\"0666\"' | sudo tee /etc/udev/rules.d/99-rplidar.rules"
+        echo "  sudo udevadm control --reload-rules && sudo udevadm trigger"
+        echo "  (Ardından logout/login yap)"
         exit 1
     fi
 fi
