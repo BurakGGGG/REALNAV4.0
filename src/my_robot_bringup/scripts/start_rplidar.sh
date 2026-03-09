@@ -1,5 +1,5 @@
 #!/bin/bash
-# RPLidar A2M12 başlatma script'i — GÜVENİLİR VERSİYON v2
+# RPLidar A2M12 başlatma script'i — GÜVENİLİR VERSİYON v3
 #
 # Özellikler:
 # - Port hazır değilse bekler (USB enumeration gecikmesi)
@@ -7,6 +7,11 @@
 # - 3 kez retry yapar, her retry arasında portu reset eder
 # - SIGINT/SIGTERM gelince retry yapmadan temiz çıkar
 # - Child process'leri (rplidar_composition) process group ile yönetir
+#
+# RPLidar Protokolü:
+#   0xA5 0x25                       = STOP_SCAN (veri akışını durdurur, MOTOR DURMAZ!)
+#   0xA5 0xF0 0x02 0x00 0x00 0x57  = SET_MOTOR_PWM(0) (MOTORU FİZİKSEL OLARAK DURDURUR)
+#   0xA5 0x40                       = RESET (cihazı yeniden başlatır)
 
 PORT="${1:-/dev/ttyUSB0}"
 MAX_RETRIES=3
@@ -32,33 +37,43 @@ cleanup() {
         kill -9 $RPID 2>/dev/null
     fi
     
-    # 2. Yetim rplidar process'lerini de temizle
-    pkill -9 -f rplidar_composition 2>/dev/null
+    # 2. Yetim rplidar process'lerini de temizle ([r]plidar trick: kendi kendini öldürmesin)
+    pkill -9 -f "[r]plidar_composition" 2>/dev/null
     sleep 0.5
     
-    # 3. Port serbest — serial STOP gönder (motoru fiziksel olarak durdur)
+    # 3. Port serbest — MOTORU FİZİKSEL OLARAK DURDUR
     if [ -e "$PORT" ]; then
         stty -F "$PORT" 256000 raw -echo 2>/dev/null
-        printf '\xa5\x25' > "$PORT" 2>/dev/null
-        sleep 0.2
+        # STOP_SCAN: veri akışını durdur
         printf '\xa5\x25' > "$PORT" 2>/dev/null
         sleep 0.1
-        printf '\xa5\x40' > "$PORT" 2>/dev/null  # RESET
+        # SET_MOTOR_PWM(0): motoru durdur!
+        printf '\xa5\xf0\x02\x00\x00\x57' > "$PORT" 2>/dev/null
+        sleep 0.3
+        # Tekrar garanti
+        printf '\xa5\x25' > "$PORT" 2>/dev/null
+        sleep 0.1
+        printf '\xa5\xf0\x02\x00\x00\x57' > "$PORT" 2>/dev/null
     fi
     
-    echo "[LiDAR] Durduruldu."
+    echo "[LiDAR] Motor durduruldu."
 }
 
 reset_port() {
-    # Eski rplidar process'lerini öldür
-    pkill -9 -f rplidar_composition 2>/dev/null
+    # Eski rplidar process'lerini öldür ([r]plidar trick: kendi kendini öldürmesin)
+    pkill -9 -f "[r]plidar_composition" 2>/dev/null
     sleep 1
     
-    # Port serbest mi kontrol et ve STOP + RESET komutu gönder
+    # Port serbest mi kontrol et — STOP + Motor durdur + RESET
     if [ -e "$PORT" ]; then
         stty -F "$PORT" 256000 raw -echo 2>/dev/null
+        # STOP_SCAN
         printf '\xa5\x25' > "$PORT" 2>/dev/null
+        sleep 0.1
+        # SET_MOTOR_PWM(0) — motoru durdur
+        printf '\xa5\xf0\x02\x00\x00\x57' > "$PORT" 2>/dev/null
         sleep 0.5
+        # RESET — temiz başlangıç için
         printf '\xa5\x40' > "$PORT" 2>/dev/null
         sleep 1
     fi
