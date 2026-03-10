@@ -36,7 +36,7 @@ def generate_launch_description():
     # ========== Arguments ==========
     declare_nav2_params = DeclareLaunchArgument(
         "nav2_params_file",
-        default_value=PathJoinSubstitution([pkg_bringup, "config", "nav2_params_custom.yaml"]),
+        default_value=PathJoinSubstitution([pkg_bringup, "config", "nav2_params.yaml"]),
     )
     declare_slam_params = DeclareLaunchArgument(
         "slam_params_file",

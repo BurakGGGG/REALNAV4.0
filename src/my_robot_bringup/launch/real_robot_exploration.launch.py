@@ -117,7 +117,7 @@ def generate_launch_description():
                 name="rplidar_node",
                 parameters=[
                     {"serial_port": lidar_port},
-                    {"serial_baudrate": 115200},  # Gerçek robot: RPLIDAR A2M12 baudrate
+                    {"serial_baudrate": 256000},  # Gerçek robot: RPLIDAR A2M12 için seçilen baudrate (script ile aynı)
                     {"frame_id": "laser_link"},
                     {"inverted": False},
                     {"angle_compensate": True},

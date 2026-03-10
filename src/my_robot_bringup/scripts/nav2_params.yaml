@@ -211,8 +211,6 @@ local_costmap:
           data_type: "LaserScan"
           clearing: true
           marking: true
-          qos_overrides:
-            reliability: best_effort
           raytrace_max_range: 12.0  # Gerçek robot: RPLIDAR A2M12 max range (3.0 -> 12.0)
           raytrace_min_range: 0.0
           obstacle_max_range: 12.0  # Gerçek robot: RPLIDAR A2M12 max range (2.5 -> 12.0)
@@ -248,8 +246,6 @@ global_costmap:
           data_type: "LaserScan"
           clearing: true
           marking: true
-          qos_overrides:
-            reliability: best_effort
           raytrace_max_range: 12.0  # Gerçek robot: RPLIDAR A2M12 max range (3.0 -> 12.0)
           raytrace_min_range: 0.0
           obstacle_max_range: 12.0  # Gerçek robot: RPLIDAR A2M12 max range (2.5 -> 12.0)

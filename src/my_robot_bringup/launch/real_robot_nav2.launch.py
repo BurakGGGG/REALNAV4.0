@@ -1,25 +1,31 @@
 """
 Gerçek Robot Nav2 (Otonom Sürüş) Başlatma Dosyası
 ==================================================
-autonomous_exploration.launch.py modelinde yeniden yapılandırıldı.
+Bu dosya SADECE Nav2 + Map Server + AMCL + TF zincirini açar.
+LiDAR daha ÖNCE ayrı bir terminalde `lidar` komutu ile başlatılmalıdır.
 
 Zamanlama sırası:
   0s  → robot_state_publisher, joint_state_publisher, nav2_motor_bridge (hemen)
-  0s  → LiDAR başlatma (start_rplidar.sh — retry ve port reset ile)
- 20s  → Map Server + AMCL (LiDAR retry tamamlanmış olmalı)
- 25s  → Nav2 node'ları (controller, planner, behavior, bt_navigator vb.)
- 45s  → Lifecycle Managers (tüm node'lar ve TF hazır olduktan sonra)
+  20s → Map Server + AMCL (LiDAR ve odom hazır varsayılır)
+  25s → Nav2 node'ları (controller, planner, behavior, bt_navigator vb.)
+  35s → Lifecycle Managers (tüm node'lar ve TF hazır olduktan sonra)
 
-Kullanım:
-ros2 launch my_robot_bringup real_robot_nav2.launch.py map:=/home/raspi/REALNAV2.3-/maps/my_room_map.yaml
+Önerilen kullanım:
+  Terminal 1 (Raspi):
+    lidar
+
+  Terminal 2 (Raspi):
+    slam          # Haritalama yap
+
+  Terminal 3 (Raspi):
+    nav2          # Kayıtlı haritayla Nav2 (bu dosya)
 """
 
 from launch import LaunchDescription
 from launch.actions import (
     IncludeLaunchDescription, DeclareLaunchArgument,
-    TimerAction, ExecuteProcess, RegisterEventHandler,
+    TimerAction,
 )
-from launch.event_handlers import OnShutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution, Command
 from launch_ros.actions import Node
@@ -34,11 +40,7 @@ def generate_launch_description():
     # ========== Arguments ==========
     declare_map = DeclareLaunchArgument(
         "map",
-        description="Tam yol ile harita yaml dosyasi (/home/raspi/.../map.yaml)"
-    )
-    declare_lidar_port = DeclareLaunchArgument(
-        "lidar_port",
-        default_value=TextSubstitution(text="/dev/ttyUSB0"),
+        description="Tam yol ile harita yaml dosyasi (/abs/path/.../map.yaml)"
     )
     declare_nav2_params = DeclareLaunchArgument(
         "nav2_params_file",
@@ -50,7 +52,6 @@ def generate_launch_description():
     )
 
     map_file = LaunchConfiguration("map")
-    lidar_port = LaunchConfiguration("lidar_port")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
     use_sim_time = LaunchConfiguration("use_sim_time")
 
@@ -90,53 +91,6 @@ def generate_launch_description():
             {"baud_rate": 115200},
             {"pwm_multiplier": 318}  # örn: 255 / 0.8 m/s
         ]
-    )
-
-    # ================================================================
-    # 3. RPLIDAR A2M12 — Port reset + doğrudan Node launch
-    #    ExecuteProcess(bash script) yerine Node kullanıyoruz çünkü
-    #    Node doğrudan ROS2 DDS'e bağlanır, /scan topic kesin yayınlanır.
-    # ================================================================
-    # 3a. Önce portu resetle (eski kalıntıları temizle)
-    port_reset = ExecuteProcess(
-        cmd=['bash', '-c',
-             'pkill -9 -f rplidar_composition 2>/dev/null; sleep 0.5; '
-             'if [ -e /dev/ttyUSB0 ]; then '
-             '  sudo -n chmod 666 /dev/ttyUSB0 2>/dev/null; '
-             '  stty -F /dev/ttyUSB0 256000 raw -echo 2>/dev/null; '
-             '  printf "\\xa5\\x25" > /dev/ttyUSB0 2>/dev/null; sleep 0.3; '
-             '  printf "\\xa5\\x40" > /dev/ttyUSB0 2>/dev/null; sleep 0.5; '
-             'fi; echo "[LiDAR] Port reset tamamlandı."'],
-        output='screen',
-    )
-
-    # 3b. 3 saniye sonra rplidar Node'u başlat
-    lidar_node = TimerAction(
-        period=3.0,
-        actions=[
-            Node(
-                package="rplidar_ros",
-                executable="rplidar_composition",
-                name="rplidar_node",
-                parameters=[
-                    {"serial_port": lidar_port},
-                    {"serial_baudrate": 256000},
-                    {"frame_id": "laser_link"},
-                    {"inverted": False},
-                    {"angle_compensate": True},
-                    {"scan_mode": "Standard"},
-                ],
-                output="screen",
-            )
-        ]
-    )
-    stop_lidar_script = PathJoinSubstitution([pkg_bringup, "scripts", "stop_lidar.sh"])
-    shutdown_handler = RegisterEventHandler(
-        OnShutdown(
-            on_shutdown=[
-                ExecuteProcess(cmd=['bash', stop_lidar_script, lidar_port], output='screen')
-            ]
-        )
     )
 
     # ================================================================
@@ -292,17 +246,13 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_map,
-        declare_lidar_port,
         declare_nav2_params,
         declare_use_sim_time,
 
         # 0s — Hemen başlayanlar
-        shutdown_handler,
         robot_state_pub,           # URDF → TF ağacı
         joint_state_pub,           # Joint states
         nav2_bridge_node,          # cmd_vel → STM32, odom → TF
-        port_reset,                # 0s — Port reset (eski kalıntıları temizle)
-        lidar_node,                # 3s — RPLIDAR A2M12 (Node olarak)
 
         # Kademeli başlatma
         localization_launch,       # 20s — Map Server + AMCL

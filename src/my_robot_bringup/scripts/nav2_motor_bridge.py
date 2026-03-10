@@ -25,8 +25,8 @@ from nav_msgs.msg import Odometry
 from tf2_ros import TransformBroadcaster
 
 # Robot geometry
-WHEEL_RADIUS = 0.05        # m (Yarıçap)
-WHEEL_SEPARATION = 0.42    # m (İki tekerlek arası mesafe)
+WHEEL_RADIUS = 0.055       # m (Yarıçap - URDF ile eşleşmeli: 0.055)
+WHEEL_SEPARATION = 0.55    # m (İki tekerlek arası mesafe - URDF ile eşleşmeli: 0.55)
 TICKS_PER_REV = 4000
 M_PER_TICK = (2.0 * math.pi * WHEEL_RADIUS) / TICKS_PER_REV
 
