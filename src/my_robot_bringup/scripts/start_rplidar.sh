@@ -37,16 +37,16 @@ cleanup() {
         kill -9 $RPID 2>/dev/null
     fi
     
-    # 2. Yetim rplidar process'lerini de temizle ([r]plidar trick: kendi kendini öldürmesin)
-    pkill -9 -f "[r]plidar_composition" 2>/dev/null
+    # 2. Yetim sllidar_node process'lerini de temizle ([s]llidar trick: kendi kendini öldürmesin)
+    pkill -9 -f "[s]llidar_node" 2>/dev/null
     sleep 0.5
     
     echo "[LiDAR] Node/Motor durduruldu."
 }
 
 reset_port() {
-    # Eski rplidar process'lerini öldür ([r]plidar trick: kendi kendini öldürmesin)
-    pkill -9 -f "[r]plidar_composition" 2>/dev/null
+    # Eski sllidar process'lerini öldür ([s]llidar trick: kendi kendini öldürmesin)
+    pkill -9 -f "[s]llidar_node" 2>/dev/null
     sleep 1
 }
 
@@ -94,12 +94,11 @@ for attempt in $(seq 1 $MAX_RETRIES); do
     # Signal kontrolü (reset_port sırasında gelmiş olabilir)
     [ "$SHUTTING_DOWN" -eq 1 ] && exit 0
 
-    ros2 run rplidar_ros rplidar_composition --ros-args \
+    ros2 run sllidar_ros2 sllidar_node --ros-args \
         -p serial_port:="$PORT" \
         -p serial_baudrate:=256000 \
         -p frame_id:=laser_link \
-        -p angle_compensate:=true \
-        -p scan_mode:=Standard &
+        -p angle_compensate:=true &
     RPID=$!
 
     # 5 saniye bekle ve process'in hâlâ çalıştığını kontrol et

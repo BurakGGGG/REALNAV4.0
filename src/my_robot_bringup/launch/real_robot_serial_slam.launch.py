@@ -53,9 +53,9 @@ def generate_launch_description():
         period=1.0,
         actions=[
             Node(
-                package="rplidar_ros",
-                executable="rplidar_composition",
-                name="rplidar_composition",
+                package="sllidar_ros2",
+                executable="sllidar_node",
+                name="sllidar_node",
                 output="screen",
                 parameters=[{
                     "serial_port": lidar_port,
@@ -63,7 +63,6 @@ def generate_launch_description():
                     "frame_id": lidar_frame,
                     "inverted": inverted,
                     "angle_compensate": angle_compensate,
-                    "scan_mode": "Standard",
                     "use_sim_time": use_sim_time,
                 }],
                 remappings=[("scan", "/scan")],

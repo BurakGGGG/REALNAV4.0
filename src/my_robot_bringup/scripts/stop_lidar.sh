@@ -10,10 +10,10 @@ PORT="${1:-/dev/ttyUSB0}"
 
 echo "[LiDAR-STOP] Motor durduruluyor..."
 
-# 1. rplidar process'lerini öldür
-pkill -f "[r]plidar_composition" 2>/dev/null
+# 1. sllidar_node process'lerini öldür
+pkill -f "[s]llidar_node" 2>/dev/null
 sleep 1
-pkill -9 -f "[r]plidar_composition" 2>/dev/null
+pkill -9 -f "[s]llidar_node" 2>/dev/null
 sleep 0.5
 
 # 2. Serial port üzerinden motor durdurma komutları gönder

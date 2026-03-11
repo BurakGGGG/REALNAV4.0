@@ -107,13 +107,12 @@ def generate_launch_description():
         cmd=['bash', '-c',
              'sleep 3 && '
              'for i in 1 2 3 4 5; do '
-             '  echo "[LiDAR] Attempt $i: starting rplidar..." && '
-             '  ros2 run rplidar_ros rplidar_composition --ros-args '
+             '  echo "[LiDAR] Attempt $i: starting sllidar..." && '
+             '  ros2 run sllidar_ros2 sllidar_node --ros-args '
              '    -p serial_port:=/dev/ttyUSB0 '
              '    -p serial_baudrate:=256000 '
              '    -p frame_id:=laser_link '
              '    -p angle_compensate:=true '
-             '    -p scan_mode:=Standard '
              '  && break; '
              '  echo "[LiDAR] Attempt $i failed, waiting 2s..." && sleep 2; '
              'done'],
