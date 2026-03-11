@@ -40,11 +40,11 @@ class Stm32Bridge(Node):
 
         # Frames
         self.declare_parameter('odom_frame', 'odom')
-        self.declare_parameter('base_frame', 'base_link')
+        self.declare_parameter('base_frame', 'base_footprint')
 
         # Robot geometry
-        self.declare_parameter('wheel_radius', 0.05)        # meters (ÖRNEK: 5cm)
-        self.declare_parameter('wheel_separation', 0.30)    # meters (ÖRNEK: tekerlekler arası 30cm)
+        self.declare_parameter('wheel_radius', 0.055)       # meters (URDF ile eşleşmeli: 5.5cm)
+        self.declare_parameter('wheel_separation', 0.55)    # meters (URDF ile eşleşmeli: tekerlekler arası 55cm)
 
         # Encoder scale
         # Burada EN KRİTİK parametre: 1 teker turu kaç count?

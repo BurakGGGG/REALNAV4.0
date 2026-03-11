@@ -41,42 +41,13 @@ cleanup() {
     pkill -9 -f "[r]plidar_composition" 2>/dev/null
     sleep 0.5
     
-    # 3. Port serbest — MOTORU FİZİKSEL OLARAK DURDUR
-    if [ -e "$PORT" ]; then
-        stty -F "$PORT" 256000 raw -echo 2>/dev/null
-        # STOP_SCAN: veri akışını durdur
-        printf '\xa5\x25' > "$PORT" 2>/dev/null
-        sleep 0.1
-        # SET_MOTOR_PWM(0): motoru durdur!
-        printf '\xa5\xf0\x02\x00\x00\x57' > "$PORT" 2>/dev/null
-        sleep 0.3
-        # Tekrar garanti
-        printf '\xa5\x25' > "$PORT" 2>/dev/null
-        sleep 0.1
-        printf '\xa5\xf0\x02\x00\x00\x57' > "$PORT" 2>/dev/null
-    fi
-    
-    echo "[LiDAR] Motor durduruldu."
+    echo "[LiDAR] Node/Motor durduruldu."
 }
 
 reset_port() {
     # Eski rplidar process'lerini öldür ([r]plidar trick: kendi kendini öldürmesin)
     pkill -9 -f "[r]plidar_composition" 2>/dev/null
     sleep 1
-    
-    # Port serbest mi kontrol et — STOP + Motor durdur + RESET
-    if [ -e "$PORT" ]; then
-        stty -F "$PORT" 256000 raw -echo 2>/dev/null
-        # STOP_SCAN
-        printf '\xa5\x25' > "$PORT" 2>/dev/null
-        sleep 0.1
-        # SET_MOTOR_PWM(0) — motoru durdur
-        printf '\xa5\xf0\x02\x00\x00\x57' > "$PORT" 2>/dev/null
-        sleep 0.5
-        # RESET — temiz başlangıç için
-        printf '\xa5\x40' > "$PORT" 2>/dev/null
-        sleep 1
-    fi
 }
 
 trap cleanup INT TERM EXIT

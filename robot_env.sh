@@ -23,7 +23,7 @@ alias slamnav2='ros2 launch my_robot_bringup slam_nav2.launch.py'
 alias teleop='python3 "$REALNAV_ROOT/src/my_robot_bringup/scripts/wasd_teleop.py"'
 alias savemap='mkdir -p "$REALNAV_ROOT/maps" && ros2 run nav2_map_server map_saver_cli -f "$REALNAV_ROOT/maps/my_room_map"'
 alias buildrobot='cd "$REALNAV_ROOT" && chmod +x src/my_robot_bringup/scripts/*.sh src/my_robot_bringup/scripts/*.py && colcon build --symlink-install && source install/setup.bash && cd -'
-alias killrobot='sudo stty -F /dev/ttyUSB0 256000 raw -echo 2>/dev/null; sudo bash -c "printf \"\\xa5\\x25\" > /dev/ttyUSB0" 2>/dev/null; sudo bash -c "printf \"\\xa5\\xf0\\x02\\x00\\x00\\x57\" > /dev/ttyUSB0" 2>/dev/null; pkill -9 -f "[r]plidar_composition"; pkill -9 -f slam_toolbox; pkill -9 -f wasd_teleop; pkill -9 -f nav2_; pkill -9 -f nav2_motor_bridge; sleep 0.5; sudo bash -c "printf \"\\xa5\\xf0\\x02\\x00\\x00\\x57\" > /dev/ttyUSB0" 2>/dev/null; echo "All robot processes killed + LiDAR motor stopped."'
+alias killrobot='pkill -9 -f "[r]plidar_composition"; pkill -9 -f slam_toolbox; pkill -9 -f wasd_teleop; pkill -9 -f nav2_; pkill -9 -f nav2_motor_bridge; echo "All robot processes killed."'
 
 echo "🤖 REALNAV ortamı hazır. (ROS_DOMAIN_ID=$ROS_DOMAIN_ID)"
 echo "   lidar    → LiDAR başlat (ayrı terminal)"

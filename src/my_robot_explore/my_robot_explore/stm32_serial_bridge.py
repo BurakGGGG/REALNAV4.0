@@ -32,8 +32,8 @@ class STM32SerialBridge(Node):
         self.declare_parameter("serial_port", "/dev/ttyUSB0")
         self.declare_parameter("baud_rate", 115200)
         self.declare_parameter("timeout", 1.0)
-        self.declare_parameter("wheel_separation", 0.43)
-        self.declare_parameter("wheel_radius", 0.05)
+        self.declare_parameter("wheel_separation", 0.55)
+        self.declare_parameter("wheel_radius", 0.055)
         self.declare_parameter("encoder_cpr", 4000)
 
         serial_port = self.get_parameter("serial_port").value

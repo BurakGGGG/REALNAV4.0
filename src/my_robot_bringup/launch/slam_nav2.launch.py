@@ -64,12 +64,10 @@ def generate_launch_description():
             {"use_sim_time": False},
         ],
     )
-    joint_state_pub = Node(
-        package="joint_state_publisher",
-        executable="joint_state_publisher",
-        output="screen",
-        parameters=[{"use_sim_time": False}],
-    )
+    # NOT: joint_state_publisher KALDIRILDI!
+    # nav2_motor_bridge.py odom→base_footprint TF'ini kendisi yayınlıyor.
+    # joint_state_publisher sahte (0) tekerlek pozisyonları yayınlayarak
+    # robot_state_publisher'ın tekerlek TF'lerini bozuyordu.
 
     # ================================================================
     # 1. Serial Motor Bridge  (0s — anında başlar)
@@ -227,7 +225,7 @@ def generate_launch_description():
 
         # 0s — Hemen başlayanlar
         robot_state_pub,           # URDF → static TF ağacı
-        joint_state_pub,           # Joint states (tekerlek TF)
+        # joint_state_publisher KALDIRILDI (nav2_motor_bridge odom TF'ini hallediyor)
         nav2_bridge_node,          # cmd_vel ↔ STM32, odom → TF
 
         # Kademeli başlatma
