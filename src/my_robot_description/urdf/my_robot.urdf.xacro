@@ -72,7 +72,7 @@ NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
   <joint name="base_link_to_laser" type="fixed">
     <parent link="base_link"/>
     <child link="laser_link"/>
-    <origin xyz="${base_length/2 - axle_offset} 0 ${laser_origin_z}" rpy="0 0 0"/>
+    <origin xyz="${base_length/2 - axle_offset} 0 ${laser_origin_z}" rpy="0 0 ${PI}"/>
   </joint>
 
   <link name="laser_link">
