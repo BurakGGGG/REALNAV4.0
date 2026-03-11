@@ -22,6 +22,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
 from tf2_ros import TransformBroadcaster
 
 # Robot geometry
@@ -66,6 +67,7 @@ class Nav2MotorBridge(Node):
 
         # Publishers & Broadcasters
         self.odom_pub = self.create_publisher(Odometry, '/odom', 10)
+        self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
         self.tf_broadcaster = TransformBroadcaster(self)
 
         # Subscribers
@@ -78,6 +80,12 @@ class Nav2MotorBridge(Node):
         self.th = 0.0
         self.last_v = 0.0
         self.last_w = 0.0
+        
+        # Joint states and wheels positions
+        self.left_wheel_pos = 0.0
+        self.right_wheel_pos = 0.0
+        self.left_wheel_vel = 0.0
+        self.right_wheel_vel = 0.0
 
         # Serial read thread
         self.buf = ""
@@ -85,9 +93,12 @@ class Nav2MotorBridge(Node):
         self.read_thread = threading.Thread(target=self._read_serial_loop, daemon=True)
         self.read_thread.start()
         
-        # Odom watchdog (Eğer serial'den veri gelmezse 0 yayını yapmak için)
+        # Odom and TF publishing timer (30 Hz CPU Optimize)
+        self.create_timer(1.0 / 30.0, self._publish_timer_callback)
+        
+        # Odom watchdog (Eğer serial'den veri gelmezse 0 hızı yayını yapmak için)
         self.last_enc_time = time.time()
-        self.create_timer(0.1, self._watchdog_timer)
+        self.create_timer(0.5, self._watchdog_timer)
         
         self.get_logger().info("Nav2 Motor Bridge HAZIR!")
         self.get_logger().info(f"Hız Çarpanı (PWM Multiplier): {self.pwm_multiplier}")
@@ -126,28 +137,23 @@ class Nav2MotorBridge(Node):
             self.get_logger().error(f"Serial Write Hatası: {e}")
 
     def _read_serial_loop(self):
-        """Arka planda UART'ı dinler, ENC verilerini çözer ve _handle_enc çağırır."""
+        """Arka planda UART'ı dinler, ENC verilerini çözer ve state'i günceller.
+           Blocking okuma yaparak CPU dostudur."""
         while self.running and rclpy.ok():
             try:
-                n = self.ser.in_waiting
-                if n > 0:
-                    chunk = self.ser.read(n).decode('utf-8', errors='ignore')
-                    self.buf += chunk
-
-                    while "\n" in self.buf:
-                        line, self.buf = self.buf.split("\n", 1)
-                        line = line.strip()
-                        if not line:
-                            continue
-                        m = ENC_RE.match(line)
-                        if m:
-                            dL = int(m.group(1))
-                            dR = int(m.group(2))
-                            dt_ms = int(m.group(3))
-                            self._handle_enc(dL, dR, dt_ms)
+                # readline() '\n' gelene kadar bekler (bloklar) -> %100 CPU kullanımını engeller
+                line = self.ser.readline().decode('utf-8', errors='ignore').strip()
+                if line:
+                    m = ENC_RE.match(line)
+                    if m:
+                        dL = int(m.group(1))
+                        dR = int(m.group(2))
+                        dt_ms = int(m.group(3))
+                        self._handle_enc(dL, dR, dt_ms)
+            except serial.SerialException:
+                time.sleep(0.1)  # Port hatasında biraz bekle
             except Exception:
                 pass
-            time.sleep(0.005)
 
     def _handle_enc(self, dL, dR, dt_ms):
         self.last_enc_time = time.time()
@@ -173,8 +179,14 @@ class Nav2MotorBridge(Node):
 
         self.last_v = ds / dt
         self.last_w = dth / dt
-
-        self._publish_odom()
+        
+        # Tekerleklerin radyan cinsinden konumları (JointStates için)
+        self.left_wheel_pos += (dL / TICKS_PER_REV) * 2 * math.pi
+        self.right_wheel_pos += (dR / TICKS_PER_REV) * 2 * math.pi
+        self.left_wheel_vel = (dL / TICKS_PER_REV * 2 * math.pi) / dt
+        self.right_wheel_vel = (dR / TICKS_PER_REV * 2 * math.pi) / dt
+        
+        # Not: Yayını burada YAPMIYORUZ. _publish_timer_callback ilgileniyor.
 
     def _publish_odom(self):
         now = self.get_clock().now().to_msg()
@@ -209,12 +221,25 @@ class Nav2MotorBridge(Node):
         odom.twist.twist.angular.z = self.last_w
         self.odom_pub.publish(odom)
         
+        # Joint states message (Tekerlek TF'leri için şart)
+        joint_state = JointState()
+        joint_state.header.stamp = now
+        joint_state.name = ['left_wheel_joint', 'right_wheel_joint']
+        joint_state.position = [self.left_wheel_pos, self.right_wheel_pos]
+        joint_state.velocity = [self.left_wheel_vel, self.right_wheel_vel]
+        self.joint_pub.publish(joint_state)
+
+    def _publish_timer_callback(self):
+        """Sabit frekansta (30Hz) odom ve TF yayını yapar."""
+        self._publish_odom()
+        
     def _watchdog_timer(self):
-        """Eğer STM32'den 0.5 saniyedir veri gelmiyorsa robotu izole et (son konumuyla odom bas)"""
+        """Eğer STM32'den 0.5 saniyedir veri gelmiyorsa hızları 0'la."""
         if time.time() - self.last_enc_time > 0.5:
             self.last_v = 0.0
             self.last_w = 0.0
-            self._publish_odom()
+            self.left_wheel_vel = 0.0
+            self.right_wheel_vel = 0.0
 
     def destroy_node(self):
         self.running = False

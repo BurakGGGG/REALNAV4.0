@@ -14,10 +14,6 @@ slam_toolbox:
     map_frame: map
     base_frame: base_footprint
     scan_topic: /scan
-    qos_overrides:
-      /scan:
-        subscription:
-          reliability: best_effort
     use_map_saver: true
     mode: mapping  # Otonom keşif için mapping modu
 
