@@ -137,7 +137,7 @@ def generate_launch_description():
         declare_baud_rate,
         declare_use_sim_time,
         
-      #  serial_bridge,              # STM32 serial bridge
+      #  serial_bridge,              # STM32 serial bridge (iptal: ros2_control kullaniyoruz)
         control_node,               # ROS2 Control node
         robot_state_pub_node,       # Robot state publisher
         joint_state_broadcaster_spawner,  # Joint state broadcaster

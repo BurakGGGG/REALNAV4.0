@@ -81,7 +81,7 @@ def generate_launch_description():
         parameters=[
             {"serial_port": "/dev/ttyAMA0"},
             {"baud_rate": 115200},
-            {"pwm_multiplier": 318},
+            {"pwm_multiplier": 200},  # Orta yol: dönüşler için yeterli (PWM~43), eskisi 318 çok hızlıydı
             {"use_sim_time": False},
         ]
     )

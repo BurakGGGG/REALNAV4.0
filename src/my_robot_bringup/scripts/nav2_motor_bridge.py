@@ -26,17 +26,19 @@ from sensor_msgs.msg import JointState
 from tf2_ros import TransformBroadcaster
 
 # Robot geometry
-WHEEL_RADIUS = 0.055       # m (Yarıçap - URDF ile eşleşmeli: 0.055)
-WHEEL_SEPARATION = 0.55    # m (İki tekerlek arası mesafe - URDF ile eşleşmeli: 0.55)
-TICKS_PER_REV = 4000
+WHEEL_RADIUS = 0.050       # m  (STM32: WHEEL_DIAM_MM=100 → r=50mm)
+WHEEL_SEPARATION = 0.43    # m  (URDF base_width ile eşleşmeli — URDF doğru!)
+TICKS_PER_REV = 1600       # Kalibre: 572→2.8m, 572×2.805≈1600 (400 PPR × 4x quadrature)
 M_PER_TICK = (2.0 * math.pi * WHEEL_RADIUS) / TICKS_PER_REV
 
 ENC_RE = re.compile(r"^ENC\s+(-?\d+)\s+(-?\d+)\s+(\d+)\s*$")
 
 # PWM Tuning
 # Robotun gerçek hayatta 1.0 m/s hıza ulaşması için gereken PWM değeri
-MAX_LINEAR_VEL = 0.8  # m/s cinsinden nav2 max limitimiz (tahmini)
+MAX_LINEAR_VEL = 0.26  # m/s — Nav2 DWB max_vel_x ile eşleşmeli
 MAX_PWM = 255.0
+# Kalibre: Minicom'da PWM=100 → 1.09 m/s → PWM/hız = 92
+# Nav2 0.26 m/s gönderince: 0.26 × 92 = PWM 24 → gerçek hız ~0.26 m/s ✓
 
 def yaw_to_quat(yaw):
     half = yaw * 0.5
@@ -57,7 +59,7 @@ class Nav2MotorBridge(Node):
 
         # Serial
         try:
-            self.ser = serial.Serial(port, baud, timeout=0)
+            self.ser = serial.Serial(port, baud, timeout=0.2)  # 200ms timeout — readline() satır sonunu beklesin!
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
             self.get_logger().info(f"Serial BAĞLANDI: {port} @ {baud}")
@@ -123,7 +125,7 @@ class Nav2MotorBridge(Node):
         if abs(pwm_l) > 255: pwm_l = int(math.copysign(255, pwm_l))
         if abs(pwm_r) > 255: pwm_r = int(math.copysign(255, pwm_r))
         
-        if abs(pwm_l) < 15 and abs(pwm_r) < 15:
+        if abs(pwm_l) < 5 and abs(pwm_r) < 5:
             pwm_l, pwm_r = 0, 0
             
         self._send_motor(pwm_l, pwm_r)
@@ -138,20 +140,33 @@ class Nav2MotorBridge(Node):
 
     def _read_serial_loop(self):
         """Arka planda UART'ı dinler, ENC verilerini çözer ve state'i günceller.
-           Blocking okuma yaparak CPU dostudur."""
+           Buffer tabanlı okuma — veri kaybı olmaz."""
+        buf = b""
         while self.running and rclpy.ok():
             try:
-                # readline() '\n' gelene kadar bekler (bloklar) -> %100 CPU kullanımını engeller
-                line = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                if line:
-                    m = ENC_RE.match(line)
-                    if m:
-                        dL = int(m.group(1))
-                        dR = int(m.group(2))
-                        dt_ms = int(m.group(3))
-                        self._handle_enc(dL, dR, dt_ms)
+                # Mevcut tüm byte'ları oku (non-blocking kontrol)
+                n = self.ser.in_waiting
+                if n > 0:
+                    chunk = self.ser.read(n)
+                    if chunk:
+                        buf += chunk
+
+                    # Buffer'da tam satırlar varsa işle
+                    while b"\n" in buf:
+                        line_bytes, buf = buf.split(b"\n", 1)
+                        line = line_bytes.strip().decode('utf-8', errors='ignore')
+                        if not line:
+                            continue
+                        m = ENC_RE.match(line)
+                        if m:
+                            dL = int(m.group(1))
+                            dR = int(m.group(2))
+                            dt_ms = int(m.group(3))
+                            self._handle_enc(dL, dR, dt_ms)
+                else:
+                    time.sleep(0.005)  # 5ms bekle — CPU koruma
             except serial.SerialException:
-                time.sleep(0.1)  # Port hatasında biraz bekle
+                time.sleep(0.1)
             except Exception:
                 pass
 
@@ -161,6 +176,11 @@ class Nav2MotorBridge(Node):
         if dt_ms <= 0:
             return
         dt = dt_ms / 1000.0
+
+        # Encoder drift deadband — dururken gürültüyü filtrele
+        if abs(dL) < 2 and abs(dR) < 2:
+            dL = 0
+            dR = 0
 
         dist_l = dL * M_PER_TICK
         dist_r = dR * M_PER_TICK
@@ -179,6 +199,12 @@ class Nav2MotorBridge(Node):
 
         self.last_v = ds / dt
         self.last_w = dth / dt
+        
+        # Hız deadband — çok küçük hızları sıfırla
+        if abs(self.last_v) < 0.01:
+            self.last_v = 0.0
+        if abs(self.last_w) < 0.01:
+            self.last_w = 0.0
         
         # Tekerleklerin radyan cinsinden konumları (JointStates için)
         self.left_wheel_pos += (dL / TICKS_PER_REV) * 2 * math.pi
@@ -219,6 +245,25 @@ class Nav2MotorBridge(Node):
         odom.pose.pose.orientation.w = qw
         odom.twist.twist.linear.x = self.last_v
         odom.twist.twist.angular.z = self.last_w
+        
+        # Covariance — SLAM'ın odometriyi körü körüne takip etmemesi için!
+        # Sıfır covariance = "odom %100 doğru" demek, SLAM düzeltme yapamaz.
+        odom.pose.covariance = [
+            0.05, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.05, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0,  0.1, 0.0, 0.0, 0.0,
+            0.0, 0.0,  0.0, 0.1, 0.0, 0.0,
+            0.0, 0.0,  0.0, 0.0, 0.1, 0.0,
+            0.0, 0.0,  0.0, 0.0, 0.0, 0.2,
+        ]
+        odom.twist.covariance = [
+            0.05, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.05, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0,  0.1, 0.0, 0.0, 0.0,
+            0.0, 0.0,  0.0, 0.1, 0.0, 0.0,
+            0.0, 0.0,  0.0, 0.0, 0.1, 0.0,
+            0.0, 0.0,  0.0, 0.0, 0.0, 0.2,
+        ]
         self.odom_pub.publish(odom)
         
         # Joint states message (Tekerlek TF'leri için şart)

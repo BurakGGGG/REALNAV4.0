@@ -1,3 +1,8 @@
+# =============================================================
+# SLAM Toolbox — Online Async Parameters
+# Eski projedeki çalışan ayarlardan adapte edildi
+# Eski proje neredeyse tamamen DEFAULT değerler kullanıyordu
+# =============================================================
 slam_toolbox:
   ros__parameters:
 
@@ -15,32 +20,26 @@ slam_toolbox:
     base_frame: base_footprint
     scan_topic: /scan
     use_map_saver: true
-    mode: mapping  # Otonom keşif için mapping modu
-
-    # OTONOM KEŞİF İÇİN: Eski haritayı yükleme, sıfırdan başla
-    # Eğer eski haritadan devam etmek isterseniz, aşağıdaki satırları açın:
-    # map_file_name: /path/to/map
-    # map_start_at_dock: true
-    # map_start_pose: [0.0, 0.0, 0.0]
+    mode: mapping
 
     debug_logging: false
-    throttle_scans: 5             # Raspi CPU'yu rahatlat (3 -> 5)
+    throttle_scans: 1             # ESKİ PROJE DEFAULT: her taramayı işle (5 → 1)
     transform_publish_period: 0.02
-    map_update_interval: 5.0      # Raspi CPU'yu rahatlat (3.0 -> 5.0)
+    map_update_interval: 5.0      # Eski proje ile aynı
     resolution: 0.05
-    min_laser_range: 0.0
-    max_laser_range: 8.0          # Maksimum menzili küçülterek hesaplamayı ve gürültüyü azalt (12.0 -> 8.0)
-    minimum_time_interval: 0.5
-    transform_timeout: 2.0
-    tf_buffer_duration: 120.0
-    stack_size_to_use: 40000000 #// program needs a larger stack size to serialize large maps
+    min_laser_range: 0.3          # ESKİ PROJE: 0.3m (robotun kendi gövdesini görmesini engelle!)
+    max_laser_range: 10.0         # ESKİ PROJE: 10.0m
+    minimum_time_interval: 0.0    # DEFAULT: her zaman işle
+    transform_timeout: 0.2        # DEFAULT: daha sıkı TF takibi (2.0 → 0.2)
+    tf_buffer_duration: 30.0      # DEFAULT
+    stack_size_to_use: 40000000
     enable_interactive_mode: true
 
-    # General Parameters
+    # General Parameters — DEFAULT değerler
     use_scan_matching: true
     use_scan_barycenter: true
-    minimum_travel_distance: 0.3
-    minimum_travel_heading: 0.3
+    minimum_travel_distance: 0.1  # Daha sık scan matching → harita dönmesini engeller
+    minimum_travel_heading: 0.1   # ~5.7 derece — küçük dönüşleri de yakala
     scan_buffer_size: 10
     scan_buffer_maximum_scan_distance: 10.0
     link_match_minimum_response_fine: 0.1  
@@ -52,24 +51,22 @@ slam_toolbox:
     loop_match_minimum_response_coarse: 0.35    
     loop_match_minimum_response_fine: 0.45
 
-    # Correlation Parameters - Correlation Parameters
+    # Correlation Parameters — DEFAULT
     correlation_search_space_dimension: 0.5
     correlation_search_space_resolution: 0.01
     correlation_search_space_smear_deviation: 0.1 
 
-    # Correlation Parameters - Loop Closure Parameters
+    # Loop Closure Parameters — DEFAULT
     loop_search_space_dimension: 8.0
     loop_search_space_resolution: 0.05
     loop_search_space_smear_deviation: 0.03
 
-    # Scan Matcher Parameters (Odom Gürültüsüne Karşı Tolerans)
-    distance_variance_penalty: 0.3     # Azaltıldı: odom'dan sapmaya daha az ceza ver (LiDAR'a güven)
-    angle_variance_penalty: 0.5        # Azaltıldı: odom açısından sapmaya daha az ceza
+    # Scan Matcher Parameters — DEFAULT
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
     fine_search_angle_offset: 0.00349
     coarse_search_angle_offset: 0.349
     coarse_angle_resolution: 0.0349
-    minimum_angle_penalty: 0.6         # Dönüşlerde LiDAR scan eşleşmesine daha çok izin ver
-    minimum_distance_penalty: 0.4      # Doğrusal gidişlerde LiDAR scan eşleşmesine daha çok izin ver
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
     use_response_expansion: true
-    min_pass_through: 2
-    occupancy_threshold: 0.65

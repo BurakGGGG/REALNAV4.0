@@ -7,7 +7,7 @@
 
 # Bu script, bulunduğu dizini otomatik kök kabul eder.
 # İsterseniz dışarıdan override edebilirsiniz: export REALNAV_ROOT=/.../REALNAV4.0
-export REALNAV_ROOT="${REALNAV_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+export REALNAV_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 export ROS_DOMAIN_ID=0
 export FASTRTPS_DEFAULT_PROFILES_FILE="$REALNAV_ROOT/fastdds_raspi.xml"

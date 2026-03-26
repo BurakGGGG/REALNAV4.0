@@ -2,30 +2,23 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <!--
-  ROS2 Control tanımı
-  NOT: Hardware interface kullanmıyoruz, serial bridge /joint_states yayınlıyor.
-  Controller'ın çalışması için minimal ros2_control tanımı gerekli.
+  ROS2 Control tanımı — MOCK (Sahte) Hardware
+  ============================================
+  Serial port iletişimini nav2_motor_bridge.py yapıyor.
+  Bu dosya sadece robot_state_publisher'ın URDF'yi kabul etmesi ve
+  controller yapısının tanımlı olması için gerekli.
+  
+  ÖNEMLİ: my_robot_hardware/DiffDriveSystem KULLANILMIYOR!
+  O plugin /dev/ttyAMA0'ı açmaya çalışıyor ve nav2_motor_bridge ile
+  çakışarak encoder verisi kaybolmasına neden oluyordu.
   -->
 
   <xacro:macro name="my_robot_ros2_control" params="name prefix">
     <ros2_control name="${name}" type="system">
       <hardware>
-        <!-- 
-        Hardware interface yok, serial bridge kullanıyoruz.
-        Controller /joint_states topic'ini kullanacak.
-        Bu sadece controller'ın başlaması için gerekli.
-        fake_components/GenericSystem kullanıyoruz (ros2_control paketinde var).
-        -->
-        <plugin>my_robot_hardware/DiffDriveSystem</plugin>
-        <param name="port">/dev/ttyAMA0</param>
-        <param name="baud">115200</param>
-        <param name="ticks_per_rev">4000</param>
-        <param name="max_wheel_rad_s">20.0</param>
-        <param name="min_pwm">30</param>
-        <param name="cmd_deadband_rad_s">0.05</param>
-
-        <param name="state_following_offset">0.0</param>
+        <plugin>mock_components/GenericSystem</plugin>
         <param name="fake_sensor_commands">false</param>
+        <param name="state_following_offset">0.0</param>
       </hardware>
       <joint name="${prefix}left_wheel_joint">
         <command_interface name="velocity"/>
