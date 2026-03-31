@@ -61,8 +61,8 @@ class FrontierCluster:
         self.cells.append((x, y))
         self.size = len(self.cells)
         # Update center (simple average)
-        self.center_x = sum(c[0] for c in self.cells) // self.size
-        self.center_y = sum(c[1] for c in self.cells) // self.size
+        self.center_x = round(sum(c[0] for c in self.cells) / self.size)
+        self.center_y = round(sum(c[1] for c in self.cells) / self.size)
     
     def contains(self, x: int, y: int) -> bool:
         return (x, y) in self.cells
@@ -246,7 +246,7 @@ class FrontierExplorer(Node):
         self.path_cost_cache_ttl = 5.0  # seconds - cache TTL
         
         # Predictive exploration: frontier future value estimation
-        self.frontier_age: Dict[Tuple[int, int], float] = {}  # Track how long frontier exists
+        self.frontier_age: Dict[Tuple[int, int], float] = {}  # Track how long frontier exists (max 500)
 
         self.timer = self.create_timer(self.replan_period, self._tick)
 
@@ -989,6 +989,11 @@ class FrontierExplorer(Node):
         
         # Frontier yaşını takip et
         if cluster_key not in self.frontier_age:
+            # Memory leak prevention: en fazla 500 entry tut (Bug #14)
+            if len(self.frontier_age) > 500:
+                oldest_keys = sorted(self.frontier_age, key=self.frontier_age.get)[:100]
+                for k in oldest_keys:
+                    del self.frontier_age[k]
             self.frontier_age[cluster_key] = current_time
         
         frontier_age = current_time - self.frontier_age[cluster_key]

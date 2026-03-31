@@ -5,6 +5,8 @@
 #include <sstream>
 #include <iomanip>
 #include <array>
+#include <thread>
+#include <chrono>
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
@@ -218,7 +220,16 @@ bool DiffDriveSystem::connect_()
     rx_buffer_.clear();
     connected_ = true;
     return true;
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("DiffDriveSystem"),
+      "connect_() failed: %s", e.what());
+    connected_ = false;
+    return false;
   } catch (...) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("DiffDriveSystem"),
+      "connect_() failed with unknown exception");
     connected_ = false;
     return false;
   }
@@ -230,7 +241,11 @@ void DiffDriveSystem::disconnect_()
     if (serial_ && serial_->is_open()) {
       serial_->close();
     }
-  } catch (...) {}
+  } catch (const std::exception & e) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("DiffDriveSystem"),
+      "disconnect_() error: %s", e.what());
+  }
   connected_ = false;
 }
 
@@ -339,7 +354,7 @@ bool DiffDriveSystem::send_wheel_rpm_(double left_rad_s, double right_rad_s)
   boost::asio::write(*serial_, boost::asio::buffer(cmd_l), ec);
   if (ec) return false;
 
-  usleep(2000);  // 2ms delay between commands
+  std::this_thread::sleep_for(std::chrono::microseconds(2000));  // 2ms delay between commands
 
   std::string cmd_r = "R " + std::to_string(r_pwm) + "\n";
   boost::asio::write(*serial_, boost::asio::buffer(cmd_r), ec);

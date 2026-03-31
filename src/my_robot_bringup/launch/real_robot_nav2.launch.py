@@ -50,10 +50,16 @@ def generate_launch_description():
         "use_sim_time",
         default_value=TextSubstitution(text="false"),
     )
+    declare_serial_port = DeclareLaunchArgument(
+        "serial_port",
+        default_value="/dev/ttyAMA0",
+        description="STM32 serial port yolu"
+    )
 
     map_file = LaunchConfiguration("map")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
     use_sim_time = LaunchConfiguration("use_sim_time")
+    serial_port = LaunchConfiguration("serial_port")
 
     # ================================================================
     # 1. URDF & TF (0 saniye - anında başlar)
@@ -72,12 +78,11 @@ def generate_launch_description():
             {"use_sim_time": use_sim_time},
         ],
     )
-    joint_state_pub = Node(
-        package="joint_state_publisher",
-        executable="joint_state_publisher",
-        output="screen",
-        parameters=[{"use_sim_time": use_sim_time}],
-    )
+    # NOT: joint_state_publisher KALDIRILDI!
+    # nav2_motor_bridge zaten gerçek encoder verisinden /joint_states yayınlıyor.
+    # joint_state_publisher sıfır/sabit değer yayınlayarak çakışma yaratıyordu
+    # ve robot_state_publisher'a çelişkili TF verileri gidiyordu.
+    # Bu, AMCL'nin map→odom TF'inin kaymasına neden oluyordu.
 
     # ================================================================
     # 2. Serial Bridge - cmd_vel -> STM32 & Odom/TF (0 saniye)
@@ -87,7 +92,7 @@ def generate_launch_description():
         executable="nav2_motor_bridge.py",
         output="screen",
         parameters=[
-            {"serial_port": "/dev/ttyAMA0"},
+            {"serial_port": serial_port},
             {"baud_rate": 115200},
             {"pwm_multiplier": 318}  # örn: 255 / 0.8 m/s
         ]
@@ -248,11 +253,12 @@ def generate_launch_description():
         declare_map,
         declare_nav2_params,
         declare_use_sim_time,
+        declare_serial_port,
 
         # 0s — Hemen başlayanlar
         robot_state_pub,           # URDF → TF ağacı
-        joint_state_pub,           # Joint states
-        nav2_bridge_node,          # cmd_vel → STM32, odom → TF
+        # joint_state_pub KALDIRILDI — nav2_bridge_node zaten /joint_states yayınlıyor
+        nav2_bridge_node,          # cmd_vel → STM32, odom → TF → /joint_states
 
         # Kademeli başlatma
         localization_launch,       # 20s — Map Server + AMCL

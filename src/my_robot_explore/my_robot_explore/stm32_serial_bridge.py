@@ -48,7 +48,8 @@ class STM32SerialBridge(Node):
         self.serial = None
         self.serial_lock = threading.Lock()
 
-        # Encoder değerleri
+        # Encoder değerleri (thread-safe erişim için encoder_lock kullan)
+        self.encoder_lock = threading.Lock()
         self.left_encoder_count = 0
         self.right_encoder_count = 0
         self.last_left_encoder = 0
@@ -145,9 +146,10 @@ class STM32SerialBridge(Node):
                             left_enc = int(parts[0])
                             right_enc = int(parts[1])
                             
-                            # Encoder değerlerini güncelle
-                            self.left_encoder_count = left_enc
-                            self.right_encoder_count = right_enc
+                            # Encoder değerlerini güncelle (thread-safe)
+                            with self.encoder_lock:
+                                self.left_encoder_count = left_enc
+                                self.right_encoder_count = right_enc
                     except ValueError as e:
                         self.get_logger().warn(f"Failed to parse encoder data: {line}")
 
@@ -183,15 +185,19 @@ class STM32SerialBridge(Node):
         if dt <= 0:
             return
 
-        # Encoder farklarını hesapla
-        left_diff = self.left_encoder_count - self.last_left_encoder
-        right_diff = self.right_encoder_count - self.last_right_encoder
+        # Encoder farklarını hesapla (thread-safe okuma)
+        with self.encoder_lock:
+            left_enc = self.left_encoder_count
+            right_enc = self.right_encoder_count
+
+        left_diff = left_enc - self.last_left_encoder
+        right_diff = right_enc - self.last_right_encoder
 
         # Encoder'ı radyan'a çevir
         # position: toplam açı (radyan)
         # velocity: açısal hız (rad/s)
-        left_position = (self.left_encoder_count / self.encoder_cpr) * 2.0 * math.pi
-        right_position = (self.right_encoder_count / self.encoder_cpr) * 2.0 * math.pi
+        left_position = (left_enc / self.encoder_cpr) * 2.0 * math.pi
+        right_position = (right_enc / self.encoder_cpr) * 2.0 * math.pi
 
         left_velocity = (left_diff / self.encoder_cpr) * 2.0 * math.pi / dt
         right_velocity = (right_diff / self.encoder_cpr) * 2.0 * math.pi / dt
@@ -208,8 +214,8 @@ class STM32SerialBridge(Node):
         self.joint_state_pub.publish(joint_state)
 
         # Güncelle
-        self.last_left_encoder = self.left_encoder_count
-        self.last_right_encoder = self.right_encoder_count
+        self.last_left_encoder = left_enc
+        self.last_right_encoder = right_enc
         self.last_encoder_time = current_time
 
     def publish_odometry(self):

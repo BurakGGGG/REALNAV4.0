@@ -81,7 +81,10 @@ def generate_launch_description():
         parameters=[
             {"serial_port": "/dev/ttyAMA0"},
             {"baud_rate": 115200},
-            {"pwm_multiplier": 200},  # Orta yol: dönüşler için yeterli (PWM~43), eskisi 318 çok hızlıydı
+            {"pwm_multiplier": 200},
+            {"wheel_radius": 0.050},
+            {"wheel_separation": 0.43},
+            {"ticks_per_rev": 1600},
             {"use_sim_time": False},
         ]
     )
@@ -143,7 +146,7 @@ def generate_launch_description():
             # Eski SLAM oturumundan kalan /map mesajını (transient_local) dikkate alma
             {"global_costmap.global_costmap.static_layer.map_subscribe_transient_local": False},
             # TF zaman toleransını artır — SLAM bazen TF'i gecikmeli yayınlar
-            {"global_costmap.global_costmap.transform_tolerance": 5.0},
+            {"global_costmap.global_costmap.transform_tolerance": 0.5},
         ]
     ))
     nav2_nodes.append(Node(

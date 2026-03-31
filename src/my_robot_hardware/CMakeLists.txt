@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -37,6 +38,7 @@ ament_target_dependencies(my_robot_hardware
   pluginlib
   rclcpp
   rclcpp_lifecycle
+  Boost
 )
 
 pluginlib_export_plugin_description_file(hardware_interface my_robot_hardware_plugins.xml)

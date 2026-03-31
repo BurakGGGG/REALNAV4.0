@@ -3,7 +3,7 @@
 Gerçek Robot URDF - Teknofest Diffbot
 Özellikler:
 - Base: 0.60m x 0.55m x 0.24m
-- Wheel radius: 0.055m
+- Wheel radius: 0.050m
 - Differential drive with caster wheel
 - LIDAR mounted on top
 
