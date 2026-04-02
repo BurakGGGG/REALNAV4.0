@@ -30,6 +30,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
 from tf2_ros import TransformBroadcaster
 
 BANNER = """
@@ -70,6 +71,7 @@ class TeleopOdom:
         rclpy.init()
         self.node = rclpy.create_node('teleop_odom')
         self.odom_pub = self.node.create_publisher(Odometry, '/odom', 10)
+        self.joint_pub = self.node.create_publisher(JointState, '/joint_states', 10)
         self.tf_broadcaster = TransformBroadcaster(self.node)
 
         # Odometry state
@@ -78,6 +80,8 @@ class TeleopOdom:
         self.th = 0.0
         self.last_v = 0.0
         self.last_w = 0.0
+        self.left_wheel_pos = 0.0
+        self.right_wheel_pos = 0.0
 
         # Motor state
         self.pwm = 60
@@ -140,6 +144,9 @@ class TeleopOdom:
         self.x += ds * math.cos(th_mid)
         self.y += ds * math.sin(th_mid)
         self.th += dth
+        
+        self.left_wheel_pos += (dL * M_PER_TICK) / WHEEL_RADIUS
+        self.right_wheel_pos += (dR * M_PER_TICK) / WHEEL_RADIUS
         # Normalize
         while self.th > math.pi:
             self.th -= 2 * math.pi
@@ -183,6 +190,15 @@ class TeleopOdom:
         odom.twist.twist.linear.x = self.last_v
         odom.twist.twist.angular.z = self.last_w
         self.odom_pub.publish(odom)
+
+        # Joint states yayınla
+        js = JointState()
+        js.header.stamp = now
+        js.name = ['left_wheel_joint', 'right_wheel_joint']
+        js.position = [self.left_wheel_pos, self.right_wheel_pos]  # ayrı takip
+        js.velocity = [self.last_v / WHEEL_RADIUS, self.last_v / WHEEL_RADIUS]
+        js.effort = []
+        self.joint_pub.publish(js)
 
     def get_key(self, timeout=0.1):
         rlist, _, _ = select.select([sys.stdin], [], [], timeout)
