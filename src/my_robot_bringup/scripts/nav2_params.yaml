@@ -94,10 +94,10 @@ controller_server:
     # MPPI Kaldirildi, Regulated Pure Pursuit eklendi - OPTİMİZE EDİLDİ
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      desired_linear_vel: 0.30     # Gerçek robot için azaltıldı: daha güvenli hız (0.35 -> 0.30)
-      lookahead_dist: 0.60         # Gerçek robot için azaltıldı: daha dikkatli bakış (0.65 -> 0.60)
-      min_lookahead_dist: 0.25     # Gerçek robot için azaltıldı (0.3 -> 0.25)
-      max_lookahead_dist: 0.8      # Gerçek robot için azaltıldı: daha kısa maksimum bakış (0.9 -> 0.8)
+      desired_linear_vel: 0.12     # 0.30 → 0.12
+      lookahead_dist: 0.40         # 0.60 → 0.40
+      min_lookahead_dist: 0.20     # 0.25 → 0.20
+      max_lookahead_dist: 0.60     # 0.80 → 0.60
       transform_tolerance: 1.0       # Gerçek robot: LiDAR gecikme toleransı (0.2 -> 1.0)
       use_rotate_to_heading: false # Gerçek robot için kapatıldı: spin önleme (true -> false)
       rotate_to_heading_angular_vel: 1.0  # Kullanılmıyor (use_rotate_to_heading=false)
@@ -153,12 +153,12 @@ velocity_smoother:
     use_sim_time: false
     smoothing_frequency: 20.0
     feedback: "OPEN_LOOP"
-    # Gerçek robot limitleri: max linear=1.0 m/s, max angular=1.0 rad/s
-    max_velocity: [1.0, 0.0, 1.0]  # [linear, y, angular] - Robot limitlerine göre (0.5->1.0, 2.0->1.0)
-    min_velocity: [-1.0, 0.0, -1.0]  # Geri gitme ve geri dönme limitleri
-    # Gerçek robot ivme limitleri: max linear=1.0 m/s², max angular=1.0 rad/s²
-    max_accel: [1.0, 0.0, 1.0]  # Robot limitlerine göre (2.5->1.0, 3.2->1.0)
-    max_decel: [-1.0, 0.0, -1.0]  # Yavaşlama limitleri
+    # Gerçek robot limitleri: max linear=0.15 m/s, max angular=0.8 rad/s
+    max_velocity: [0.15, 0.0, 0.8]    # [1.0, 0.0, 1.0] → [0.15, 0.0, 0.8]
+    min_velocity: [-0.15, 0.0, -0.8]
+    # Gerçek robot ivme limitleri: max linear=0.5 m/s², max angular=0.8 rad/s²
+    max_accel: [0.5, 0.0, 0.8]        # [1.0, 0.0, 1.0] → [0.5, 0.0, 0.8]
+    max_decel: [-0.5, 0.0, -0.8]
     odom_topic: "/odom"
     odom_duration: 0.1
     velocity_timeout: 1.0

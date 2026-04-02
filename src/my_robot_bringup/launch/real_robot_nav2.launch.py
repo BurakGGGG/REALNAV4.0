@@ -94,7 +94,10 @@ def generate_launch_description():
         parameters=[
             {"serial_port": serial_port},
             {"baud_rate": 115200},
-            {"pwm_multiplier": 318}  # örn: 255 / 0.8 m/s
+            {"pwm_multiplier": 318},
+            {"wheel_radius": 0.051},
+            {"wheel_separation": 0.43},
+            {"ticks_per_rev": 4000},
         ]
     )
 
@@ -121,7 +124,7 @@ def generate_launch_description():
     ))
 
     localization_launch = TimerAction(
-        period=20.0,  # 20s: LiDAR retry (~15s) + Odom hazır olsun, sonra AMCL aç
+        period=8.0,  # 20.0 → 8.0
         actions=localization_nodes
     )
 
@@ -189,7 +192,7 @@ def generate_launch_description():
     ))
 
     nav2_navigation = TimerAction(
-        period=25.0,  # 25s: AMCL 20s'de başladı, 5s sonra navigation node'larını aç
+        period=16.0,  # 25.0 → 16.0
         actions=nav2_nodes
     )
 
@@ -201,7 +204,7 @@ def generate_launch_description():
     # 6a. Localization Lifecycle Manager (22s — map_server + amcl)
     localization_managed = ["map_server", "amcl"]
     lifecycle_localization = TimerAction(
-        period=22.0,  # 22s: localization node'lar 20s'de başladı, 2s configure süresi
+        period=12.0,  # 22.0 → 12.0
         actions=[
             Node(
                 package="nav2_lifecycle_manager",
@@ -232,7 +235,7 @@ def generate_launch_description():
         "collision_monitor",
     ]
     lifecycle_navigation = TimerAction(
-        period=35.0,  # 35s: Nav2 node'ları 25s'de başladı, 10s configure süresi
+        period=22.0,  # 35.0 → 22.0
         actions=[
             Node(
                 package="nav2_lifecycle_manager",

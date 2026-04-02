@@ -127,6 +127,13 @@ class Nav2MotorBridge(Node):
         if abs(pwm_l) > 255: pwm_l = int(math.copysign(255, pwm_l))
         if abs(pwm_r) > 255: pwm_r = int(math.copysign(255, pwm_r))
         
+        # Minimum PWM eşiği — motorun dönebileceği minimum değer
+        MIN_PWM = 35
+        if pwm_l != 0 and abs(pwm_l) < MIN_PWM:
+            pwm_l = int(math.copysign(MIN_PWM, pwm_l))
+        if pwm_r != 0 and abs(pwm_r) < MIN_PWM:
+            pwm_r = int(math.copysign(MIN_PWM, pwm_r))
+        
         if abs(pwm_l) < 5 and abs(pwm_r) < 5:
             pwm_l, pwm_r = 0, 0
             
