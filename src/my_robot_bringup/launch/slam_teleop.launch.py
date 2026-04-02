@@ -64,13 +64,9 @@ def generate_launch_description():
         ],
     )
 
-    # ---------- Joint State Publisher (Wheels) ----------
-    joint_state_pub = Node(
-        package="joint_state_publisher",
-        executable="joint_state_publisher",
-        output="screen",
-        parameters=[{"use_sim_time": use_sim_time}],
-    )
+    # NOT: joint_state_publisher KALDIRILDI!
+    # wasd_teleop.py zaten gerçek encoder verisinden odom TF yayınlıyor.
+    # joint_state_publisher sıfır değer yayınlayarak çakışma yaratıyordu.
 
     # ---------- SLAM Toolbox (3s delay) ----------
     slam_toolbox_launch = TimerAction(
@@ -93,7 +89,7 @@ def generate_launch_description():
         declare_use_sim_time,
 
         robot_state_pub,            # URDF TF (base_link → laser_link etc.)
-        joint_state_pub,            # Wheel TF
+        # joint_state_pub KALDIRILDI — wasd_teleop.py odom TF'ini hallediyor
         slam_toolbox_launch,        # SLAM Toolbox
         # ros2_control YOK — odom TF wasd_teleop.py tarafından yayınlanır
     ])

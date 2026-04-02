@@ -122,7 +122,7 @@ class Nav2MotorBridge(Node):
         v_r = v + (w * self.wheel_separation / 2.0)
         
         pwm_l = int(v_l * self.pwm_multiplier)
-        pwm_r = int(v_r * self.pwm_multiplier)
+        pwm_r = int(v_r * self.pwm_multiplier * 1.046)  # sağ düzeltme katsayısı
         
         if abs(pwm_l) > 255: pwm_l = int(math.copysign(255, pwm_l))
         if abs(pwm_r) > 255: pwm_r = int(math.copysign(255, pwm_r))

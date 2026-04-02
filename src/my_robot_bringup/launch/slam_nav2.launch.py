@@ -82,9 +82,9 @@ def generate_launch_description():
             {"serial_port": "/dev/ttyAMA0"},
             {"baud_rate": 115200},
             {"pwm_multiplier": 200},
-            {"wheel_radius": 0.050},
-            {"wheel_separation": 0.43},
-            {"ticks_per_rev": 1600},
+            {"wheel_radius": 0.051},       # 320mm çevre → r=50.9mm
+            {"wheel_separation": 0.43},    # Ölçüldü
+            {"ticks_per_rev": 4000},       # Ölçüldü
             {"use_sim_time": False},
         ]
     )

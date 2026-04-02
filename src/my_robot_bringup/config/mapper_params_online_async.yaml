@@ -23,14 +23,14 @@ slam_toolbox:
     mode: mapping
 
     debug_logging: false
-    throttle_scans: 1             # ESKİ PROJE DEFAULT: her taramayı işle (5 → 1)
+    throttle_scans: 3             # CPU yükünü azalt (1 → 3)
     transform_publish_period: 0.02
-    map_update_interval: 5.0      # Eski proje ile aynı
+    map_update_interval: 3.0      # Daha sık harita güncelleme (5.0 → 3.0)
     resolution: 0.05
     min_laser_range: 0.3          # ESKİ PROJE: 0.3m (robotun kendi gövdesini görmesini engelle!)
     max_laser_range: 10.0         # ESKİ PROJE: 10.0m
     minimum_time_interval: 0.0    # DEFAULT: her zaman işle
-    transform_timeout: 0.2        # DEFAULT: daha sıkı TF takibi (2.0 → 0.2)
+    transform_timeout: 0.5        # TF gecikmelerine tolerans (0.2 → 0.5)
     tf_buffer_duration: 30.0      # DEFAULT
     stack_size_to_use: 40000000
     enable_interactive_mode: true
@@ -38,8 +38,8 @@ slam_toolbox:
     # General Parameters — DEFAULT değerler
     use_scan_matching: true
     use_scan_barycenter: true
-    minimum_travel_distance: 0.1  # Daha sık scan matching → harita dönmesini engeller
-    minimum_travel_heading: 0.1   # ~5.7 derece — küçük dönüşleri de yakala
+    minimum_travel_distance: 0.2  # 0.1 → 0.2: gereksiz scan matching azalt
+    minimum_travel_heading: 0.15  # 0.1 → 0.15: ~8.6 derece
     scan_buffer_size: 10
     scan_buffer_maximum_scan_distance: 10.0
     link_match_minimum_response_fine: 0.1  

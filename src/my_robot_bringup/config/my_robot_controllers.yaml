@@ -14,7 +14,7 @@ my_robot_base_controller:
     right_wheel_names: ["right_wheel_joint"]
 
     wheel_separation: 0.43
-    wheel_radius: 0.050
+    wheel_radius: 0.051       # 320mm çevre → r=50.9mm
 
     wheel_separation_multiplier: 1.0
     left_wheel_radius_multiplier: 1.0

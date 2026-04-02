@@ -45,8 +45,8 @@ BANNER = """
 """
 
 # Robot geometry
-WHEEL_RADIUS = 0.05        # m
-WHEEL_SEPARATION = 0.42   # m
+WHEEL_RADIUS = 0.051       # 320mm çevre → r=50.9mm
+WHEEL_SEPARATION = 0.43    # Ölçüldü
 TICKS_PER_REV = 4000
 M_PER_TICK = (2.0 * math.pi * WHEEL_RADIUS) / TICKS_PER_REV
 
@@ -200,13 +200,13 @@ class TeleopOdom:
                 key = self.get_key(0.1)
 
                 if key == 'w':
-                    self.send_motor(self.pwm, self.pwm)
+                    self.send_motor(self.pwm, int(self.pwm * 1.046))
                 elif key == 's':
-                    self.send_motor(-self.pwm, -self.pwm)
+                    self.send_motor(-self.pwm, int(-self.pwm * 1.046))
                 elif key == 'a':
-                    self.send_motor(-self.pwm, self.pwm)
+                    self.send_motor(-self.pwm, int(self.pwm * 1.046))
                 elif key == 'd':
-                    self.send_motor(self.pwm, -self.pwm)
+                    self.send_motor(self.pwm, int(-self.pwm * 1.046))
                 elif key == ' ':
                     self.send_motor(0, 0)
                 elif key in ('+', '='):
