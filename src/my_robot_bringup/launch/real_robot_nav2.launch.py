@@ -92,7 +92,7 @@ def generate_launch_description():
         executable="nav2_motor_bridge.py",
         output="screen",
         parameters=[
-            {"serial_port": serial_port},
+            {"serial_port": "/dev/ttyAMA0"},
             {"baud_rate": 115200},
             {"pwm_multiplier": 318},
             {"wheel_radius": 0.051},
@@ -124,7 +124,7 @@ def generate_launch_description():
     ))
 
     localization_launch = TimerAction(
-        period=8.0,  # 20.0 → 8.0
+        period=8.0,  # 20.0 -> 8.0
         actions=localization_nodes
     )
 
@@ -192,7 +192,7 @@ def generate_launch_description():
     ))
 
     nav2_navigation = TimerAction(
-        period=16.0,  # 25.0 → 16.0
+        period=16.0,  # 25.0 -> 16.0
         actions=nav2_nodes
     )
 
@@ -201,10 +201,10 @@ def generate_launch_description():
     #    Referans: articubot_one — localization + navigation ayrı lifecycle
     # ================================================================
     
-    # 6a. Localization Lifecycle Manager (22s — map_server + amcl)
+    # 6a. Localization Lifecycle Manager
     localization_managed = ["map_server", "amcl"]
     lifecycle_localization = TimerAction(
-        period=12.0,  # 22.0 → 12.0
+        period=12.0,  # 22.0 -> 12.0
         actions=[
             Node(
                 package="nav2_lifecycle_manager",
@@ -235,7 +235,7 @@ def generate_launch_description():
         "collision_monitor",
     ]
     lifecycle_navigation = TimerAction(
-        period=22.0,  # 35.0 → 22.0
+        period=22.0,  # 35.0 -> 22.0
         actions=[
             Node(
                 package="nav2_lifecycle_manager",
