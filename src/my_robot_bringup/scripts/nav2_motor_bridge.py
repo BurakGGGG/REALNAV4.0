@@ -104,6 +104,8 @@ class Nav2MotorBridge(Node):
         
         # Odom watchdog
         self.last_enc_time = time.time()
+        self.last_cmd_time = time.time()
+        self._last_sent_nonzero = False
         self.create_timer(0.5, self._watchdog_timer)
         
         self.get_logger().info("Nav2 Motor Bridge HAZIR!")
@@ -115,6 +117,7 @@ class Nav2MotorBridge(Node):
         )
 
     def cmd_vel_callback(self, msg: Twist):
+        self.last_cmd_time = time.time()  # Son komut zamani
         v = msg.linear.x
         w = msg.angular.z
         
@@ -138,6 +141,9 @@ class Nav2MotorBridge(Node):
             pwm_l, pwm_r = 0, 0
             
         self._send_motor(pwm_l, pwm_r)
+        
+        # Sıfır olmayan komut gönderildi mi takip et
+        self._last_sent_nonzero = (pwm_l != 0 or pwm_r != 0)
 
     def _send_motor(self, l, r):
         try:
@@ -287,7 +293,11 @@ class Nav2MotorBridge(Node):
         self._publish_odom()
         
     def _watchdog_timer(self):
-        if time.time() - self.last_enc_time > 0.5:
+        """0.5 saniye cmd_vel gelmezse motoru durdur"""
+        if time.time() - self.last_cmd_time > 0.5:
+            if hasattr(self, '_last_sent_nonzero') and self._last_sent_nonzero:
+                self._send_motor(0, 0)
+                self._last_sent_nonzero = False
             with self.odom_lock:
                 self.last_v = 0.0
                 self.last_w = 0.0
