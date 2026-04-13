@@ -9,8 +9,8 @@ TF zinciri:
   base_footprint → ...  : robot_state_publisher (URDF)
 
 Kullanım (Raspi'de):
-  Terminal 1:  lidar         ← LiDAR'ı ayrı başlat
-  Terminal 2:  slamnav2      ← SLAM + Nav2
+  Terminal 1:  lidar
+  Terminal 2:  slamnav2
 
   PC'de:
   rviznav2
@@ -22,7 +22,7 @@ from launch.actions import (
     TimerAction,
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, TextSubstitution, Command
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.parameter_descriptions import ParameterValue
@@ -36,7 +36,8 @@ def generate_launch_description():
     # ========== Arguments ==========
     declare_nav2_params = DeclareLaunchArgument(
         "nav2_params_file",
-        default_value=PathJoinSubstitution([pkg_bringup, "scripts", "nav2_params.yaml"]),
+        # DÜZELTME: config/ klasöründen, SLAM'a özel params dosyası
+        default_value=PathJoinSubstitution([pkg_bringup, "config", "nav2_params_slam.yaml"]),
     )
     declare_slam_params = DeclareLaunchArgument(
         "slam_params_file",
@@ -47,8 +48,7 @@ def generate_launch_description():
     slam_params_file = LaunchConfiguration("slam_params_file")
 
     # ================================================================
-    # 0. URDF & TF  (0s — anında başlar)
-    #    base_footprint → base_link → laser_link / wheels  (static TF)
+    # 0. URDF & TF  (0s)
     # ================================================================
     urdf_xacro_path = PathJoinSubstitution([pkg_desc, "urdf", "my_robot.urdf.xacro"])
     robot_desc = ParameterValue(
@@ -64,15 +64,9 @@ def generate_launch_description():
             {"use_sim_time": False},
         ],
     )
-    # NOT: joint_state_publisher KALDIRILDI!
-    # nav2_motor_bridge.py odom→base_footprint TF'ini kendisi yayınlıyor.
-    # joint_state_publisher sahte (0) tekerlek pozisyonları yayınlayarak
-    # robot_state_publisher'ın tekerlek TF'lerini bozuyordu.
 
     # ================================================================
-    # 1. Serial Motor Bridge  (0s — anında başlar)
-    #    odom → base_footprint TF yayınlar  (encoder'dan)
-    #    cmd_vel → STM32 PWM gönderir
+    # 1. Serial Motor Bridge  (0s)
     # ================================================================
     nav2_bridge_node = Node(
         package="my_robot_bringup",
@@ -81,7 +75,7 @@ def generate_launch_description():
         parameters=[
             {"serial_port": "/dev/ttyAMA0"},
             {"baud_rate": 115200},
-            {"pwm_multiplier": 318},       # 200 → 318
+            {"pwm_multiplier": 318},
             {"wheel_radius": 0.051},
             {"wheel_separation": 0.43},
             {"ticks_per_rev": 4000},
@@ -90,15 +84,7 @@ def generate_launch_description():
     )
 
     # ================================================================
-    # 2. LiDAR → AYRI TERMİNALDEN BAŞLATILIR!
-    #    Terminal 1'de:  lidar
-    #    (start_rplidar.sh retry mekanizması ile güvenilir çalışır)
-    # ================================================================
-
-    # ================================================================
-    # 3. SLAM Toolbox  (5s — LiDAR ve odom hazır olduktan sonra)
-    #    map → odom TF yayınlar  (AMCL YOK!)
-    #    /map topic yayınlar
+    # 3. SLAM Toolbox  (5s)
     # ================================================================
     slam_toolbox_launch = TimerAction(
         period=5.0,
@@ -116,93 +102,37 @@ def generate_launch_description():
     )
 
     # ================================================================
-    # 4. Nav2 Navigation Node'ları  (15s — SLAM'ın map→odom TF'i yayınlaması için yeterli süre)
-    #    NOT: AMCL ve map_server YOK! SLAM Toolbox her ikisini de halleder.
+    # 4. Nav2 Node'ları  (15s)
+    # nav2_params_slam.yaml zaten static_layer içermiyor,
+    # ek override'a gerek yok
     # ================================================================
     nav2_nodes = []
 
-    nav2_nodes.append(Node(
-        package="nav2_controller",
-        executable="controller_server",
-        name="controller_server",
-        output="screen",
-        parameters=[nav2_params_file, {"use_sim_time": False}]
-    ))
-    nav2_nodes.append(Node(
-        package="nav2_smoother",
-        executable="smoother_server",
-        name="smoother_server",
-        output="screen",
-        parameters=[nav2_params_file, {"use_sim_time": False}]
-    ))
-    nav2_nodes.append(Node(
-        package="nav2_planner",
-        executable="planner_server",
-        name="planner_server",
-        output="screen",
-        parameters=[
-            nav2_params_file,
-            {"use_sim_time": False},
-            # Eski SLAM oturumundan kalan /map mesajını (transient_local) dikkate alma
-            {"global_costmap.global_costmap.static_layer.map_subscribe_transient_local": False},
-            # TF zaman toleransını artır — SLAM bazen TF'i gecikmeli yayınlar
-            {"global_costmap.global_costmap.transform_tolerance": 0.5},
-        ]
-    ))
-    nav2_nodes.append(Node(
-        package="nav2_behaviors",
-        executable="behavior_server",
-        name="behavior_server",
-        output="screen",
-        parameters=[nav2_params_file, {"use_sim_time": False}]
-    ))
-    nav2_nodes.append(Node(
-        package="nav2_bt_navigator",
-        executable="bt_navigator",
-        name="bt_navigator",
-        output="screen",
-        parameters=[nav2_params_file, {"use_sim_time": False}]
-    ))
-    nav2_nodes.append(Node(
-        package="nav2_waypoint_follower",
-        executable="waypoint_follower",
-        name="waypoint_follower",
-        output="screen",
-        parameters=[nav2_params_file, {"use_sim_time": False}]
-    ))
-    nav2_nodes.append(Node(
-        package="nav2_velocity_smoother",
-        executable="velocity_smoother",
-        name="velocity_smoother",
-        output="screen",
-        parameters=[nav2_params_file, {"use_sim_time": False}]
-    ))
-    nav2_nodes.append(Node(
-        package="nav2_collision_monitor",
-        executable="collision_monitor",
-        name="collision_monitor",
-        output="screen",
-        parameters=[nav2_params_file, {"use_sim_time": False}]
-    ))
+    for pkg, exe, name in [
+        ("nav2_controller", "controller_server", "controller_server"),
+        ("nav2_smoother", "smoother_server", "smoother_server"),
+        ("nav2_planner", "planner_server", "planner_server"),
+        ("nav2_behaviors", "behavior_server", "behavior_server"),
+        ("nav2_bt_navigator", "bt_navigator", "bt_navigator"),
+        ("nav2_waypoint_follower", "waypoint_follower", "waypoint_follower"),
+        ("nav2_velocity_smoother", "velocity_smoother", "velocity_smoother"),
+        ("nav2_collision_monitor", "collision_monitor", "collision_monitor"),
+    ]:
+        nav2_nodes.append(Node(
+            package=pkg, executable=exe, name=name,
+            output="screen",
+            parameters=[nav2_params_file, {"use_sim_time": False}]
+        ))
 
-    nav2_navigation = TimerAction(
-        period=15.0,
-        actions=nav2_nodes
-    )
+    nav2_navigation = TimerAction(period=15.0, actions=nav2_nodes)
 
     # ================================================================
-    # 5. Navigation Lifecycle Manager  (25s — tüm node'lar kesinlikle hazır)
-    #    bond_timeout=120 → node'lara aktivasyon için bol süre ver
+    # 5. Navigation Lifecycle Manager  (25s)
     # ================================================================
     navigation_managed = [
-        "controller_server",
-        "smoother_server",
-        "planner_server",
-        "behavior_server",
-        "bt_navigator",
-        "waypoint_follower",
-        "velocity_smoother",
-        "collision_monitor",
+        "controller_server", "smoother_server", "planner_server",
+        "behavior_server", "bt_navigator", "waypoint_follower",
+        "velocity_smoother", "collision_monitor",
     ]
     lifecycle_navigation = TimerAction(
         period=25.0,
@@ -225,15 +155,9 @@ def generate_launch_description():
     return LaunchDescription([
         declare_nav2_params,
         declare_slam_params,
-
-        # 0s — Hemen başlayanlar
-        robot_state_pub,           # URDF → static TF ağacı
-        # joint_state_publisher KALDIRILDI (nav2_motor_bridge odom TF'ini hallediyor)
-        nav2_bridge_node,          # cmd_vel ↔ STM32, odom → TF
-
-        # Kademeli başlatma
-        # LiDAR → AYRI TERMİNALDEN: lidar komutu
-        slam_toolbox_launch,       #  5s — SLAM Toolbox  (map → odom TF + /map)
-        nav2_navigation,           # 15s — Nav2 node'ları  (AMCL YOK!)
-        lifecycle_navigation,      # 25s — Navigation aktifleştir
+        robot_state_pub,
+        nav2_bridge_node,
+        slam_toolbox_launch,
+        nav2_navigation,
+        lifecycle_navigation,
     ])
