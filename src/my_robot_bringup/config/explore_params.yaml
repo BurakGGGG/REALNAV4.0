@@ -1,54 +1,14 @@
-frontier_explorer:
+explore_node:
   ros__parameters:
-    use_sim_time: false
-    
-    # Topic ve Frame ayarları
-    map_topic: /map
-    goal_frame: map
-    robot_frame: base_footprint
-    nav_action: navigate_to_pose
-    
-    # Hedef seçim parametreleri - DÖNÜŞ SORUNUNU ÖNLEMEK İÇİN OPTİMİZE EDİLDİ
-    min_goal_distance: 3.0          # Artırıldı: daha uzak hedefleri seçer (2.0 → 3.0) → Çok daha az dönüş!
-    goal_cooldown_sec: 3.0          # Artırıldı: çok daha az sıklıkla goal değişir (1.5 → 3.0) → Çok daha kararlı hareket
-    goal_timeout_sec: 60.0          # Exploration goal timeout (saniye)
-    return_to_start_timeout_sec: 120.0  # Return-to-start için daha uzun timeout (saniye)
-    replan_period_sec: 1.5          # Daha sık kontrol
-    
-    # Harita işleme parametreleri - GÜVENLİK ARTIRILDI
-    free_value_max: 10              # 0..10 free kabul et (değişmedi)
-    occupied_value_min: 65          # 65..100 occupied kabul et (değişmedi)
-    safety_cell_radius: 5           # Gerçek robot için artırıldı: goal etrafında daha güvenli alan (4 -> 5) - duvara çarpmayı önler
-    
-    # Başlangıca dönme parametreleri
-    return_to_start: true            # Haritalama bitince başlangıca dön
-    start_position_timeout: 2.0      # Başlangıç pozisyonunu kaydetmek için bekleme süresi (saniye)
-    start_position_tolerance: 0.6    # Nav2 xy_goal_tolerance (0.5m) + küçük margin - Goal tolerance ile uyumlu!
-    
-    # GELİŞMİŞ ÖZELLİKLER - Teknofest Optimizasyonları
-    # Information Gain (Bilgi Kazancı) - Daha büyük keşfedilmemiş alana yakın frontieri önceliklendir
-    use_information_gain: true       # Information gain kullan (true/false)
-    information_gain_weight: 2.0     # Information gain ağırlığı (ne kadar önemli)
-    
-    # Frontier Clustering (Frontier Kümeleme) - Yakın frontieri grupla
-    frontier_cluster_distance: 5     # Piksel - kümeleme için maksimum mesafe
-    min_cluster_size: 3              # Minimum hücre sayısı (daha küçük kümeleri yok say)
-    
-    # Stuck Detection (Takılma Algılama)
-    stuck_detection_enabled: true    # Takılma algılamayı etkinleştir
-    stuck_distance_threshold: 0.5    # Metre - takılı sayılması için maksimum hareket mesafesi
-    stuck_time_threshold: 30.0       # Saniye - takılı sayılması için minimum süre
-    stuck_velocity_threshold: 0.05   # m/s - velocity-based stuck detection threshold
-    use_velocity_stuck_detection: true  # Velocity-based stuck detection kullan (daha hızlı tepki)
-    
-    # Performance Optimization (Performans Optimizasyonu)
-    roi_radius: 15.0                 # Metre - Region of Interest yarıçapı (base - dinamik olabilir)
-    roi_radius_min: 10.0             # Metre - Minimum ROI yarıçapı (erken exploration için)
-    roi_radius_max: 20.0             # Metre - Maximum ROI yarıçapı (geç exploration için)
-    use_dynamic_roi: true            # Dinamik ROI kullan (coverage'a göre ayarlanır)
-    
-    # Visualization & Metrics (Görselleştirme ve Metrikler)
-    publish_visualization: true      # Frontier marker'larını yayınla (RViz'de görünsün)
-    publish_metrics: true            # Keşif metriklerini yayınla
-    visualization_topic: /frontier_markers
-    metrics_topic_prefix: /exploration_metrics
+    robot_base_frame: base_footprint
+    costmap_topic: map
+    costmap_updates_topic: map_updates
+    visualize: true
+    planner_frequency: 0.20
+    progress_timeout: 30.0
+    potential_scale: 3.0
+    orientation_scale: 0.0
+    gain_scale: 1.0
+    min_frontier_size: 0.75
+    transform_tolerance: 0.5
+    return_to_init: true
