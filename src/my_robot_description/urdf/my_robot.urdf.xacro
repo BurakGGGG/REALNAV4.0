@@ -1,37 +1,45 @@
 <?xml version="1.0"?>
 <!--
-Gerçek Robot URDF - Teknofest Diffbot
-Özellikler:
-- Base: 0.60m x 0.55m x 0.24m
-- Wheel radius: 0.050m
-- Differential drive with caster wheel
-- LIDAR mounted on top
-
-NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
+Gerçek Robot URDF — Teknofest AGV (v4 KESİN)
+=============================================
+Ölçüler (cetvel ile):
+  Gövde: 60cm uzun × 55cm geniş × 24cm yüksek
+  Tekerlek aralığı: 43cm (merkez-merkez)
+  Aks arkadan: 5cm
+  Tekerlek yarıçapı: 5.1cm
+  LiDAR: önden 25cm, yerden 42cm, sol-sağ ortada
 -->
 <robot name="my_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <!-- Import materials -->
   <xacro:include filename="$(find my_robot_description)/urdf/my_robot.materials.xacro" />
-  
-  <!-- Import ros2_control -->
   <xacro:include filename="$(find my_robot_description)/urdf/my_robot.ros2_control.xacro" />
 
-  <!-- Robot ölçüleri (Gerçek robot ölçüleri) -->
   <xacro:property name="PI" value="3.1415926535897931"/>
+
+  <!-- Gövde ölçüleri -->
   <xacro:property name="base_width" value="0.55" />
-  <xacro:property name="wheel_separation" value="0.43" />
   <xacro:property name="base_length" value="0.60" />
   <xacro:property name="base_height" value="0.24" />
+
+  <!-- Tekerlek ölçüleri -->
+  <xacro:property name="wheel_separation" value="0.43" />
   <xacro:property name="wheel_len" value="0.030" />
   <xacro:property name="wheel_radius" value="0.051" />
   <xacro:property name="caster_wheel_radius" value="0.055" />
-  <xacro:property name="axle_offset" value="0.10" /> 
+
+  <!-- Aks: arkadan 5cm -->
+  <xacro:property name="axle_offset" value="0.05" />
+
+  <!-- LiDAR: akstan 25cm önde, yerden 42cm (akstan 36.9cm) -->
+  <xacro:property name="laser_radius" value="0.05"/>
+  <xacro:property name="laser_length" value="0.045"/>
+  <xacro:property name="laser_x" value="0.25"/>
+  <xacro:property name="laser_z" value="0.369"/>
 
   <!-- Root frame -->
   <link name="base_footprint" />
 
-  <!-- Gövde (base_link) -->
+  <!-- Gövde -->
   <link name="base_link">
     <collision>
       <origin xyz="${base_length/2 - axle_offset} 0 ${base_height/2}" rpy="0 0 0"/>
@@ -39,7 +47,6 @@ NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
         <box size="${base_length} ${base_width} ${base_height}"/>
       </geometry>
     </collision>
-
     <visual>
       <origin xyz="${base_length/2 - axle_offset} 0 ${base_height/2}" rpy="0 0 0"/>
       <geometry>
@@ -47,30 +54,20 @@ NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
       </geometry>
       <material name="orange"/>
     </visual>
-
     <inertial>
       <mass value="5.0"/>
       <origin xyz="${base_length/2 - axle_offset} 0 ${base_height/2}"/>
-      <inertia 
-        ixx="0.10" ixy="0" ixz="0" 
-        iyy="0.10" iyz="0" 
-        izz="0.10"/>
+      <inertia ixx="0.10" ixy="0" ixz="0" iyy="0.10" iyz="0" izz="0.10"/>
     </inertial>
   </link>
 
-  <!-- base_footprint -> base_link joint -->
   <joint name="base_joint" type="fixed">
     <parent link="base_footprint"/>
     <child link="base_link"/>
-    <origin xyz="0 0 0" rpy="0 0 0"/>  
+    <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
-  <!-- LIDAR -->
-  <xacro:property name="laser_radius" value="0.05"/>
-  <xacro:property name="laser_length" value="0.045"/>
-  <xacro:property name="laser_x" value="0.25"/>
-  <xacro:property name="laser_z" value="0.369"/>
-
+  <!-- LiDAR -->
   <joint name="base_link_to_laser" type="fixed">
     <parent link="base_link"/>
     <child link="laser_link"/>
@@ -94,12 +91,9 @@ NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
     <inertial>
       <mass value="0.1"/>
       <origin xyz="0 0 0"/>
-      <inertia 
-        ixx="0.001" ixy="0" ixz="0" 
-        iyy="0.001" iyz="0" 
-        izz="0.001"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
     </inertial>
-  </link> 
+  </link>
 
   <!-- Sol Teker -->
   <joint name="left_wheel_joint" type="continuous">
@@ -113,24 +107,16 @@ NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
   <link name="left_wheel">
     <collision>
       <origin xyz="0 0 0" rpy="${PI/2} 0 0"/>
-      <geometry>
-        <cylinder length="${wheel_len}" radius="${wheel_radius}"/>
-      </geometry>
+      <geometry><cylinder length="${wheel_len}" radius="${wheel_radius}"/></geometry>
     </collision>
     <visual>
       <origin xyz="0 0 0" rpy="${PI/2} 0 0"/>
-      <geometry>
-        <cylinder length="${wheel_len}" radius="${wheel_radius}"/>
-      </geometry>
+      <geometry><cylinder length="${wheel_len}" radius="${wheel_radius}"/></geometry>
       <material name="black"/>
     </visual>
     <inertial>
-      <mass value="1.0"/>
-      <origin xyz="0 0 0"/>
-      <inertia 
-        ixx="0.01" ixy="0" ixz="0" 
-        iyy="0.01" iyz="0" 
-        izz="0.01"/>
+      <mass value="1.0"/><origin xyz="0 0 0"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
     </inertial>
   </link>
 
@@ -146,28 +132,20 @@ NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
   <link name="right_wheel">
     <collision>
       <origin xyz="0 0 0" rpy="${PI/2} 0 0"/>
-      <geometry>
-        <cylinder length="${wheel_len}" radius="${wheel_radius}"/>
-      </geometry>
+      <geometry><cylinder length="${wheel_len}" radius="${wheel_radius}"/></geometry>
     </collision>
     <visual>
       <origin xyz="0 0 0" rpy="${PI/2} 0 0"/>
-      <geometry>
-        <cylinder length="${wheel_len}" radius="${wheel_radius}"/>
-      </geometry>
+      <geometry><cylinder length="${wheel_len}" radius="${wheel_radius}"/></geometry>
       <material name="black"/>
     </visual>
     <inertial>
-      <mass value="1.0"/>
-      <origin xyz="0 0 0"/>
-      <inertia 
-        ixx="0.01" ixy="0" ixz="0" 
-        iyy="0.01" iyz="0" 
-        izz="0.01"/>
+      <mass value="1.0"/><origin xyz="0 0 0"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
     </inertial>
   </link>
 
-  <!-- Ön Caster Teker -->
+  <!-- Ön Caster -->
   <joint name="caster_frontal_wheel_joint" type="fixed">
     <parent link="base_link"/>
     <child link="caster_frontal_wheel"/>
@@ -177,28 +155,19 @@ NOT: ros2_control entegrasyonu var (Serial bridge + ROS2 Control kullanıyoruz)
   <link name="caster_frontal_wheel">
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="${caster_wheel_radius}"/>
-      </geometry>
+      <geometry><sphere radius="${caster_wheel_radius}"/></geometry>
     </collision>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <sphere radius="${caster_wheel_radius}"/>
-      </geometry>
+      <geometry><sphere radius="${caster_wheel_radius}"/></geometry>
       <material name="white"/>
     </visual>
     <inertial>
-      <mass value="0.3"/>
-      <origin xyz="0 0 0"/>
-      <inertia 
-        ixx="0.001" ixy="0" ixz="0" 
-        iyy="0.001" iyz="0" 
-        izz="0.001"/>
+      <mass value="0.3"/><origin xyz="0 0 0"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
     </inertial>
   </link>
 
-  <!-- ROS2 Control -->
   <xacro:my_robot_ros2_control name="my_robot" prefix="" />
 
 </robot>
