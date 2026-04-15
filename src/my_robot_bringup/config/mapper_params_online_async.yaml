@@ -38,12 +38,12 @@ slam_toolbox:
     # General Parameters — DEFAULT değerler
     use_scan_matching: true
     use_scan_barycenter: true
-    minimum_travel_distance: 0.2  # 0.1 → 0.2: gereksiz scan matching azalt
-    minimum_travel_heading: 0.15  # 0.1 → 0.15: ~8.6 derece
+    minimum_travel_distance: 0.15  
+    minimum_travel_heading: 0.10 
     scan_buffer_size: 10
     scan_buffer_maximum_scan_distance: 10.0
     link_match_minimum_response_fine: 0.1  
-    link_scan_maximum_distance: 1.5
+    link_scan_maximum_distance: 1.0
     loop_search_maximum_distance: 3.0
     do_loop_closing: true 
     loop_match_minimum_chain_size: 10           
@@ -52,9 +52,9 @@ slam_toolbox:
     loop_match_minimum_response_fine: 0.45
 
     # Correlation Parameters — DEFAULT
-    correlation_search_space_dimension: 0.5
+    correlation_search_space_dimension: 0.3
     correlation_search_space_resolution: 0.01
-    correlation_search_space_smear_deviation: 0.1 
+    correlation_search_space_smear_deviation: 0.03
 
     # Loop Closure Parameters — DEFAULT
     loop_search_space_dimension: 8.0
